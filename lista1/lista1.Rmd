@@ -1,0 +1,33 @@
+```{r}
+data <- read.csv("C:/Users/micha/OneDrive/Dokumenty/GitHub/EKSPLORACJA-DANYCH/lista1/WA_Fn-UseC_-Telco-Customer-Churn.csv", sep=",", header=TRUE, stringsAsFactors=TRUE)
+```
+
+```{r}
+# liczba przypadków i cech
+dim(data)
+```
+
+```{r}
+# Typy zmiennych
+str(data)
+```
+
+```{r}
+# Usunięcie customerID 
+data$customerID <- NULL
+head(data)
+```
+
+```{r}
+# Brakujące obserwacje
+colSums(is.na(data))
+```
+```{r}
+# Brakujące obserwacje
+colSums(is.na(data))
+```
+
+```{r}
+# Unikalne wartości
+sapply(data, unique)
+```
