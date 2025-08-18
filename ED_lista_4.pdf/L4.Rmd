@@ -1,0 +1,607 @@
+---
+title: "Raport 2"
+author: "Michał Frąckowiak 275951 Matusz Goszczyński 275959"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    fig_caption: true
+    fig_width: 7
+    fig_height: 5
+    number_sections: true
+  html_document:
+    toc: true
+    df_print: paged
+  word_document:
+    toc: true
+header-includes:
+- \usepackage[OT4]{polski}
+- \usepackage[utf8]{inputenc}
+- \usepackage{graphicx}
+- \usepackage{float}
+- \DeclareUnicodeCharacter{2265}{\geq}
+subtitle: Eksploracja danych
+fontsize: 12pt
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r, echo=FALSE}
+library(xtable)
+library(dplyr)
+library(mlbench)
+library(cluster)
+library(tidyr)
+library(ggplot2)
+library(dendextend)
+library(e1071)
+data(Vehicle)
+set.seed(231)
+```
+
+
+# Krótki opis zagadnienia
+naliza skupień (ang. clustering) to metoda eksploracji danych mająca na celu podział zbioru obserwacji na grupy (klastry), w których elementy są do siebie podobne, a różne grupy są od siebie wyraźnie odróżnialne. W pracy zastosowano metody grupowania hierarchicznego (np. AGNES) oraz metody podziałowe, które wizualizowano przy pomocy techniki redukcji wymiaru — wielowymiarowego skalowania (MDS). MDS służy do przekształcenia danych do przestrzeni dwuwymiarowej, co ułatwia interpretację i wizualizację skupień. Analiza skupień umożliwia wykrycie naturalnej struktury w danych bez uprzedniej wiedzy o etykietach klas.
+
+\newpage
+
+# Opis eksperymentów/analiz
+Przygotowano dane: usunięto etykiety klas oraz, w razie potrzeby, wybrano losowy podzbiór 200 obserwacji i dokonano standaryzacji. Zastosowano metodę hierarchiczną AGNES z różnymi metodami łączenia, a podziały na klastry uzyskano przez cięcie dendrogramu na liczbę odpowiadającą rzeczywistym klasom.
+
+Wyniki grupowania zwizualizowano za pomocą wielowymiarowego skalowania (MDS), gdzie kolory oznaczały klastry, a symbole rzeczywiste klasy. Jakość grupowania oceniono przy pomocy indeksu silhouette oraz miar zgodności z rzeczywistym podziałem, co pozwoliło wybrać optymalną liczbę klastrów i lepszą metodę grupowania. Na końcu przeprowadzono analizę charakterystyk poszczególnych skupień.
+
+# Opis zmiennych
+
+```{r, results = 'asis', echo=FALSE}
+# Tworzenie data frame z opisem wszystkich zmiennych w zbiorze Vehicle
+wszystkie_zmienne <- data.frame(
+  "Nazwa zmiennej" = c(
+    "Comp",
+    "Circ", 
+    "D.Circ",
+    "Rad.Ra",
+    "Pr.Axis.Ra",
+    "Max.L.Ra",
+    "Scat.Ra",
+    "Elong",
+    "Pr.Axis.Rect",
+    "Max.L.Rect", 
+    "Sc.Var.Maxis",
+    "Sc.Var.minor",
+    "Ra.Gyr",
+    "Skew.Maxis",
+    "Skew.minor",
+    "Kurt.Maxis",
+    "Kurt.minor",
+    "Holl.Ra",
+    "Class"
+  ),
+  "Typ zmiennej" = c(
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)", 
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "kategoryczna (factor)"
+  ),
+  "Opis" = c(
+    "Kompaktowość - miara zwartości kształtu pojazdu",
+    "Kołowość - stopień podobieństwa kształtu do koła",
+    "Odległość kołowości - miara odchylenia od idealnego koła",
+    "Stosunek promieni - relacja między promieniami w różnych kierunkach", 
+    "Stosunek osi głównych - proporcja między głównymi osiami elipsy",
+    "Stosunek długości do szerokości - maksymalna długość do maksymalnej szerokości",
+    "Stosunek rozproszenia - miara rozproszenia punktów kształtu",
+    "Wydłużenie - miara tego, jak bardzo kształt jest wydłużony",
+    "Prostokątność osi głównych - jak bardzo kształt przypomina prostokąt względem osi głównych",
+    "Prostokątność długości i szerokości - prostokątność względem wymiarów maksymalnych",
+    "Wariancja skalowana dla osi głównej - znormalizowana wariancja wzdłuż osi głównej",
+    "Wariancja skalowana dla osi pobocznej - znormalizowana wariancja wzdłuż osi pobocznej",
+    "Promień żyracji - miara koncentracji masy kształtu",
+    "Skośność wzdłuż osi głównej - asymetria rozkładu punktów wzdłuż osi głównej",
+    "Skośność wzdłuż osi pobocznej - asymetria rozkładu punktów wzdłuż osi pobocznej",
+    "Kurtoza wzdłuż osi głównej - spłaszczenie rozkładu punktów wzdłuż osi głównej",
+    "Kurtoza wzdłuż osi pobocznej - spłaszczenie rozkładu punktów wzdłuż osi pobocznej",
+    "Stosunek pustych obszarów - proporcja przestrzeni pustej wewnątrz kształtu",
+    "Typ pojazdu: bus (autobus), saab, van (furgonetka), opel"
+  ),
+  "Rola" = c(
+    "zmienna objaśniająca",
+    "zmienna objaśniająca", 
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna celu"
+  ),
+  stringsAsFactors = FALSE
+)
+
+# Tworzenie tabeli xtable z odpowiednimi parametrami formatowania
+xt <- xtable(wszystkie_zmienne, 
+             caption = "Opis zmiennych w zbiorze danych Vehicle",
+             label = "tab:vehicle-opis")
+
+# Wydrukowanie tabeli z odpowiednimi parametrami LaTeX
+print(xt, 
+      type = "latex",
+      caption.placement = "top",
+      include.rownames = FALSE,
+      table.placement = "H",
+      scalebox = 0.85,
+      comment = FALSE)
+```
+
+\newpage
+
+# Wyniki
+
+```{r a12}
+selected_indices <- sample(1:nrow(Vehicle), size = 200, replace = FALSE)
+Vehicle <- Vehicle[selected_indices, ]
+Vehicle_train <- Vehicle %>% dplyr::select(-Class)
+```
+
+Zbiór Vehicle zawiera 18 zmiennych geometrycznych, które mogą mieć bardzo różne zakresy wartości. Standaryzacja sprawia, że zmienne stają się porównywalne, szczególnie gdy są mierzone w różnych skalach
+
+```{r a34}
+Vehicle_standardized <- scale(Vehicle_train)
+```
+
+
+```{r b1.1, echo=FALSE}
+# Obliczenie odległości euklidesowych w przestrzeni MDS
+dissim_matrix <- daisy(Vehicle_standardized, metric = "gower")
+mds_metric_2d <- cmdscale(dissim_matrix, k = 2, eig = TRUE)
+mds_metric_2d_coords <- mds_metric_2d$points
+mds_distances <- dist(mds_metric_2d_coords)
+
+# Przygotowanie danych do wykresu
+shepard_data <- data.frame(
+  original_dist = as.vector(dissim_matrix),
+  mds_dist = as.vector(mds_distances)
+)
+# Wykres Sheparda
+ggplot(shepard_data, aes(x = original_dist, y = mds_dist)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(
+    title = paste("Diagram Sheparda - Metryczne MDS"),
+    x = "Odległości oryginalne",
+    y = "Odległości w przestrzeni MDS"
+  ) +
+  theme_minimal()
+
+```
+\begin{figure}
+\centering
+\caption{Diagram Sheparda}
+\label{fig:shepard-diagram-function}
+\end{figure}
+
+Rozmieszczenie punktów na diagramie Sheparda (\ref{fig:shepard-diagram-function}), które układają się blisko linii trendu, wskazuje na silną korelację między pierwotnymi odległościami w danych a odległościami w zredukowanej, dwuwymiarowej przestrzeni. Oznacza to, że redukcja wymiaru za pomocą MDS dobrze zachowała oryginalną strukturę odległości między obiektami.
+
+\newpage
+
+```{r, echo=FALSE}
+mds_fit <- cmdscale(dist(Vehicle_standardized), k = 2)
+kmeans_res <- kmeans(mds_fit, centers = 4)
+
+# Wizualizacja klastrów na MDS
+plot(mds_fit, col = kmeans_res$cluster,
+     main = "MDS + k-means clustering", pch = 19,
+     xlab = "Wymiar 1", ylab = "Wymiar 2")
+
+# Dodanie legendy dla klastrów
+legend("top", legend = paste("Klaster", 1:4), 
+       col = 1:4, pch = 19, cex = 0.8)
+
+# Dodanie prawdziwych etykiet klas jako punkty referencyjne
+points(mds_fit, col = as.numeric(Vehicle$Class), pch = 4, cex = 0.8)
+legend("right", legend = levels(Vehicle$Class), 
+       col = 1:4, pch = 4, cex = 0.8, title = "Prawdziwe klasy")
+```
+\begin{figure}
+\centering
+\caption{MDS z klastrami k-means}
+\label{fig:kmeans-clusters}
+\end{figure}
+Wizualizacja grupowania k-means na płaszczyźnie MDS (\ref{fig:kmeans-clusters}) pokazuje, że skupienia (oznaczone kolorami) częściowo pokrywają się z rzeczywistymi klasami pojazdów (oznaczonymi symbolami). Można zauważyć, że niektóre klasy są trudne do rozróżnienia i trafiają do tych samych klastrów, podczas gdy inne tworzą bardziej jednorodne grupy.
+
+```{r b1.2, echo=FALSE}
+mds_metric_2d_coords <- data.frame(
+  Dim1 = mds_metric_2d$points[, 1],
+  Dim2 = mds_metric_2d$points[, 2]
+)
+
+dissim_matrix <- dist(Vehicle_standardized)
+hclust_result <- hclust(dissim_matrix, method = "ward.D2")
+grupy_hier <- cutree(hclust_result, k = 4)
+
+mds_metric_2d_with_clusters_hier <- data.frame(
+  mds_metric_2d_coords, 
+  Cluster = factor(grupy_hier),
+  Vehicle_Type = if(exists("Vehicle_sample")) Vehicle_sample$Class else Vehicle$Class
+)
+
+# Wykres
+ggplot(mds_metric_2d_with_clusters_hier, aes(x = Dim1, y = Dim2, color = Cluster, shape = Vehicle_Type)) +
+  geom_point(alpha = 0.7, size = 2) +
+  labs(title = "Metryczne MDS (2D) z klastrami (hierarchiczne)", 
+       subtitle = "Liczba klastrów: 4",
+       color = "Klaster", shape = "Prawdziwa klasa") +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+\begin{figure}
+\centering
+\caption{MDS z klastrami hierarchicznymi}
+\label{fig:predicted-klaster}
+\end{figure}
+
+Podział uzyskany metodą hierarchiczną (\ref{fig:predicted-klaster}) wizualnie prezentuje minimalnie lepsze oddzielenie grup. Klastry (kolory) wydają się bardziej spójne z rzeczywistymi klasami (kształty), co sugeruje, że ta metoda mogła lepiej uchwycić strukturę danych w tym przypadku.
+
+
+```{r, echo=FALSE}
+# Przygotowanie kolorów wg klas
+class_labels <- Vehicle$Class
+class_colors <- as.numeric(as.factor(class_labels))
+
+```
+
+
+```{r, echo=FALSE}
+hclust_single <- hclust(dissim_matrix, method = "single")
+dend_single <- as.dendrogram(hclust_single)
+labels_colors(dend_single) <- class_colors
+labels(dend_single) <- rep("", length(labels(dend_single)))
+
+plot(dend_single, main = "Dendrogram single", ylim = c(0, 5))
+colored_bars(colors = class_colors, dend = dend_single, rowLabels = "klasa", sort_by_labels_order = TRUE)
+legend("topright", legend = levels(as.factor(class_labels)), fill = 1:4, cex = 0.8)
+```
+\begin{figure}
+\centering
+\caption{Dendrogram metoda single}
+\label{fig:single}
+\end{figure}
+
+Denagram(\ref{fig:single}) ma bardzo "płaską" strukturę z większością połączeń występujących na poziomach 1-2, a następnie jednym dramatycznym skokiem do poziomu około 5.  charakteryzuje się "łańcuchowaniem", gdzie pojedyncze obserwacje są dołączane do istniejących, dużych skupień. Skutkuje to kliloma stosunkowo zwartymi grupami, jednakże większość danych jest wymieszana. Trudno jest zidentyfikować naturalne, dobrze oddzielone klastry. 
+```{r, echo=FALSE}
+hclust_complete <- hclust(dissim_matrix, method = "complete")
+dend_complete <- as.dendrogram(hclust_complete)
+labels_colors(dend_complete) <- class_colors
+labels(dend_complete) <- rep("", length(labels(dend_complete)))
+
+plot(dend_complete, main = "Dendrogram complete", ylim = c(0, 15))
+colored_bars(colors = class_colors, dend = dend_complete, rowLabels = "klasa", sort_by_labels_order = TRUE)
+legend("topright", legend = levels(as.factor(class_labels)), fill = 1:4, cex = 0.8)
+```
+\begin{figure}
+\centering
+\caption{Dendrogram metoda complete}
+\label{complete}
+\end{figure}
+
+Dendrogram dla metody pełnego wiązania (\ref{complete}) tworzy bardziej zwarte i wyraźnie oddzielone klastry. Kolorowe paski wskazują, że obiekty należące do tej samej prawdziwej klasy częściej grupują się w tych samych gałęziach dendrogramu, co świadczy o lepszym dopasowaniu niż w metodzie pojedynczego wiązania. 
+
+```{r, echo=FALSE}
+hclust_average <- hclust(dissim_matrix, method = "average")
+dend_average <- as.dendrogram(hclust_average)
+labels_colors(dend_average) <- class_colors
+labels(dend_average) <- rep("", length(labels(dend_average)))
+
+plot(dend_average, main = "Dendrogram average", ylim = c(0, 15))
+colored_bars(colors = class_colors, dend = dend_average, rowLabels = "klasa", sort_by_labels_order = TRUE)
+legend("topright", legend = levels(as.factor(class_labels)), fill = 1:4, cex = 0.8)
+
+```
+\begin{figure}
+\centering
+\caption{Dendrogram metoda average}
+\label{fig:average}
+\end{figure}
+
+ Struktura jest znacznie bardziej interpretowalna niż w przypadku single linkage, z wyraźnymi grupami zamiast jednego długiego łańcucha.(\ref{fig:average}), wykazuje bardziej równomierne rozłożenie skupień . Niektóre marki występują częściej w określonych częściach dendrogramu, co sugeruje, że metoda skutecznie identyfikuje podobieństwa między pojazdami.
+
+
+```{r, echo=FALSE}
+hclust_ward <- hclust(dissim_matrix, method = "ward.D2")
+dend_ward <- as.dendrogram(hclust_ward)
+labels_colors(dend_ward) <- class_colors
+labels(dend_ward) <- rep("", length(labels(dend_ward)))
+
+plot(dend_ward, main = "Dendrogram ward.D2", ylim = c(0, 60))
+colored_bars(colors = class_colors, dend = dend_ward, rowLabels = "klasa", sort_by_labels_order = TRUE)
+legend("topright", legend = levels(as.factor(class_labels)), fill = 1:4, cex = 0.8)
+
+```
+Dendrogram(\ref{fig:ward2D}) pokazuje wyraźne podziały na kilka głównych grup przy różnych poziomach odległości. Najważniejszy podział występuje na wysokości około 55, dzieląc dane na dwie główne gałęzie. Struktura dendrogramu sugeruje, że niektóre pojazdy mają podobne charakterystyki, szczególnie  często mieszaja sie saab i opel.Obserwując kolorowe paski na dole, można zauważyć pewne wzorce w grupowaniu różnych marek, co sugeruje, że metoda najskuteczniej identyfikuje podobieństwa między pojazdami.
+
+\begin{figure}
+\centering
+\caption{Dendrogram metoda ward.D2}
+\label{fig:wardD2}
+\end{figure}
+
+```{r c1.1, echo=FALSE}
+
+K.max <- 8
+K_range <- 2:K.max
+
+# Inicjalizacja struktur do przechowywania wyników
+results_internal <- data.frame(
+  K = rep(K_range, 2),
+  Algorithm = rep(c("k-means_MDS", "AGNES_ward"), each = length(K_range)),
+  Silhouette = NA
+)
+
+results_external <- data.frame(
+  K = rep(K_range, 2),
+  Algorithm = rep(c("k-means_MDS", "AGNES_ward"), each = length(K_range)),
+  Accuracy = NA
+)
+
+true_labels <- as.numeric(Vehicle$Class)
+mds_coords <- cmdscale(dist(Vehicle_standardized), k = 2)
+```
+
+
+```{r c1.2}
+for(k in K_range) {
+  # k-means na współrzędnych MDS
+  kmeans_mds <- kmeans(mds_coords, centers = k, nstart = 25)
+  kmeans_clusters <- kmeans_mds$cluster
+  
+  # Silhouette dla k-means na MDS
+  if(k > 1 && k < nrow(mds_coords)) {
+    sil_kmeans <- silhouette(kmeans_clusters, dist(mds_coords))
+    avg_sil_kmeans <- mean(sil_kmeans[, 3])
+    results_internal[results_internal$K == k & results_internal$Algorithm == "k-means_MDS", "Silhouette"] <- avg_sil_kmeans
+  }
+  
+  # Accuracy dla k-means - sprawdzenie czy k odpowiada liczbie prawdziwych klas
+  if(k <= length(unique(true_labels))) {
+    confusion_matrix <- table(kmeans_clusters, true_labels)
+    if(nrow(confusion_matrix) > 0 && ncol(confusion_matrix) > 0) {
+      matched_clusters <- apply(confusion_matrix, 1, which.max)
+      matched_labels <- matched_clusters[kmeans_clusters]
+      accuracy_kmeans <- sum(matched_labels == true_labels) / length(true_labels)
+      results_external[results_external$K == k & results_external$Algorithm == "k-means_MDS", "Accuracy"] <- accuracy_kmeans
+    }
+  }
+  
+  # AGNES
+  agnes_clusters <- cutree(hclust_ward, k = k)
+  
+  # Silhouette dla AGNES
+  if(k > 1 && k < length(agnes_clusters)) {
+    sil_agnes <- silhouette(agnes_clusters, dissim_matrix)
+    avg_sil_agnes <- mean(sil_agnes[, 3])
+    results_internal[results_internal$K == k & results_internal$Algorithm == "AGNES_ward", "Silhouette"] <- avg_sil_agnes
+  }
+  
+  # Accuracy dla AGNES
+  if(k <= length(unique(true_labels))) {
+    confusion_matrix_agnes <- table(agnes_clusters, true_labels)
+    if(nrow(confusion_matrix_agnes) > 0 && ncol(confusion_matrix_agnes) > 0) {
+      matched_clusters_agnes <- apply(confusion_matrix_agnes, 1, which.max)
+      matched_labels_agnes <- matched_clusters_agnes[agnes_clusters]
+      accuracy_agnes <- sum(matched_labels_agnes == true_labels) / length(true_labels)
+      results_external[results_external$K == k & results_external$Algorithm == "AGNES_ward", "Accuracy"] <- accuracy_agnes
+    }
+  }
+}
+```
+
+```{r, echo=FALSE}
+# Usuwanie NA przed wykresem
+results_internal_clean <- results_internal[!is.na(results_external$Accuracy), ]
+
+ggplot(results_internal_clean, aes(x = K, y = Silhouette, color = Algorithm, shape = Algorithm)) +
+  geom_line() +
+  geom_point(size = 3) +
+  labs(title = "Porównanie jakości grupowania - wskaźnik Silhouette",
+       subtitle = "Wyższe wartości oznaczają lepsze grupowanie",
+       x = "Liczba klastrów (K)",
+       y = "Średnia wartość wskaźnika Silhouette") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = K_range)
+```
+
+**k-means na MDS:**
+
+Najwyższa wartość przy K=2 (\~0.55) - sugeruje naturalny podział danych na dwie główne grupy
+Stabilizacja na poziomie \~0.4 dla K>4 - wartości powyżej 0.4 wskazują na "rozsądną" strukturę klastrów
+
+**AGNES ward: **
+
+Najwyższa wartość przy K=2 (\~0.4) - niższa niż k-means, ale wciąż akceptowalna
+
+
+```{r, echo=FALSE}
+# Usuwanie NA przed wykresem
+results_external_clean <- results_external[!is.na(results_external$Accuracy), ]
+
+ggplot(results_external_clean, aes(x = K, y = Accuracy, color = Algorithm, shape = Algorithm)) +
+  geom_line() +
+  geom_point(size = 3) +
+  labs(title = "Porównanie zgodności z prawdziwymi klasami",
+       subtitle = "Wyższe wartości oznaczają lepszą zgodność z rzeczywistymi klasami",
+       x = "Liczba klastrów (K)",
+       y = "Dokładność klasyfikacji") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  scale_x_continuous(breaks = K_range) +
+  scale_y_continuous(labels = scales::percent_format())
+```
+**AGNES ward:**
+
+Ciągły wzrost: K=2 (37%) → K=3 (39%) → K=4 (43%)
+Najlepsza accuracy przy K=4 (prawdziwa liczba klas)
+
+
+**k-means na MDS:**
+
+Spadek: K=2 (36.5%) → K=3 (36%) → wzrost do K=4 (39.5%)
+Poprawa przy K=4, ale wciąż niższa niż AGNES
+
+* Wysoka wartość przy K=2 w obu algorytmach sugeruje, że dane mają naturalną strukturę dwuklasową
+* Spadek jakości przy wyższych K może oznaczać wymuszanie nadmiernego podziału
+* Konflikt z liczbą prawdziwych klas (4) wskazuje na złożoność struktury danych Vehicle
+
+Możemy postawić teze że K = 2 jest lepszym wyborem ale sprwawdzmy dalej...
+
+```{r, echo=FALSE}
+cat("=== NAJLEPSZE WYNIKI ===\n")
+best_silhouette <- results_internal_clean[which.max(results_internal_clean$Silhouette), ]
+print(best_silhouette)
+
+best_accuracy <- results_external_clean[which.max(results_external_clean$Accuracy), ]
+print(best_accuracy)
+
+cat("\n=== WYNIKI DLA K=4 (prawdziwa liczba klas) ===\n")
+results_k4_internal <- results_internal[results_internal$K == 4, ]
+results_k4_external <- results_external[results_external$K == 4, ]
+
+print("Wskaźniki wewnętrzne (K=4):")
+print(results_k4_internal)
+print("Wskaźniki zewnętrzne (K=4):")
+print(results_k4_external)
+```
+
+```{r, echo=FALSE}
+
+# Dodanie informacji o klastrach do oryginalnych danych
+Vehicle_clustered <- Vehicle %>%
+  mutate(Cluster = factor(grupy_hier))
+
+# Obliczenie średnich wartości cech dla każdego klastra
+cluster_means <- Vehicle_clustered %>%
+  group_by(Cluster) %>%
+  summarise(across(where(is.numeric), mean))
+
+# Tabela średnich wartości cech w klastrach
+print(cluster_means)
+
+# Wizualizacja wybranych cech za pomocą wykresów pudełkowych
+cechy_wybrane <- c("Comp", "Circ", "Elong", "Scat.Ra", "Holl.Ra")
+
+Vehicle_long <- Vehicle_clustered %>%
+  select(all_of(cechy_wybrane), Cluster) %>%
+  pivot_longer(cols = -Cluster, names_to = "Cechy", values_to = "Wartość")
+
+ggplot(Vehicle_long, aes(x = Cluster, y = Wartość, fill = Cluster)) +
+  geom_boxplot(alpha = 0.7) +
+  facet_wrap(~ Cechy, scales = "free_y") +
+  labs(title = "Rozkład wybranych cech w poszczególnych skupieniach",
+       x = "Klaster", y = "Wartość cechy") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+\begin{figure}
+\centering
+\caption{boxplot z podziałem na 4 skupienia}
+\label{fig:boxplot4}
+\end{figure}
+
+**Klaster 1**
+To skupienie zawiera obiekty o nieregularnych kształtach z dużą liczbą lub rozmiarem wewnętrznych struktur (dziur/otworów).
+
+**Klaster 2**
+Obiekty zwarte, regularne, o kształtach zbliżonych do koła, ale z dużym rozproszeniem wewnętrznym.
+
+**Klaster 3**
+Obiekty wydłużone, mało zwarte, z niewielką liczbą wewnętrznych struktur i małym rozproszeniem.
+
+**Klaster 4**
+Obiekty o bardzo regularnych, zwartych kształtach z minimalną liczbą wewnętrznych struktur, ale z ekstremalnie wysokim rozproszeniem wewnętrznym.
+
+
+```{r, echo=FALSE}
+mds_fit <- cmdscale(dist(Vehicle_standardized), k = 2)
+kmeans_res <- kmeans(mds_fit, centers = 2)
+
+# Wizualizacja klastrów na MDS
+plot(mds_fit, col = kmeans_res$cluster,
+     main = "MDS + k-means clustering", pch = 19,
+     xlab = "Wymiar 1", ylab = "Wymiar 2")
+
+# Dodanie legendy dla klastrów
+legend("top", legend = paste("Klaster", 1:2), 
+       col = 1:4, pch = 19, cex = 0.8)
+
+# Dodanie prawdziwych etykiet klas jako punkty referencyjne
+points(mds_fit, col = as.numeric(Vehicle$Class), pch = 4, cex = 0.8)
+legend("right", legend = levels(Vehicle$Class), 
+       col = 1:4, pch = 4, cex = 0.8, title = "Prawdziwe klasy")
+
+Vehicle_clustered <- Vehicle %>%
+  mutate(Cluster = factor(kmeans_res$cluster))
+
+# Wizualizacja wybranych cech za pomocą wykresów pudełkowych
+cechy_wybrane <- c("Comp", "Circ", "Elong", "Scat.Ra", "Holl.Ra")
+
+Vehicle_long <- Vehicle_clustered %>%
+  select(all_of(cechy_wybrane), Cluster) %>%
+  pivot_longer(cols = -Cluster, names_to = "Cechy", values_to = "Wartość")
+
+ggplot(Vehicle_long, aes(x = Cluster, y = Wartość, fill = Cluster)) +
+  geom_boxplot(alpha = 0.7) +
+  facet_wrap(~ Cechy, scales = "free_y") +
+  labs(title = "Rozkład wybranych cech w poszczególnych skupieniach",
+       x = "Klaster", y = "Wartość cechy") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+\begin{figure}
+\centering
+\caption{boxplot z podziałem na 2 skupienia}
+\label{fig:boxplot2}
+\end{figure}
+
+Analizując wykres pudełkowy dla klastrowania na 2 skupienia(\ref{fig:boxplot2}), można stwierdzić, że to nowe klastrowanie jest gorsze w porównaniu do wcześniejszej analizy z 4 klastrami(\ref{fig:boxplot4}). Grupy są szerokie i zawierają obiekty o bardzo zróżnicowanych charakterystykach
+
+\newpage
+
+# Podsumowanie
+
+## Najlepszy algorytm:
+AGNES ward jest lepszym wyborem:
+
+* Najwyższa accuracy (43% vs 39.5% dla k-means)
+* Konsystentny wzrost jakości z rosnącą liczbą klastrów
+* Lepsze dopasowanie do rzeczywistej struktury danych
+
+## Optymalna liczba klastrów:
+K=4 jest optymalnym wyborem
