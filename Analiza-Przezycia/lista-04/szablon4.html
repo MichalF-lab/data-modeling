@@ -1,0 +1,723 @@
+﻿<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Raport Analizy Przeżycia - Listy 9-12</title>
+</head>
+<body>
+    <div class="header">
+        <h1>Raport Analizy Przeżycia</h1>
+        <p class="date">Data wygenerowania: {{DATA}}</p>
+        <p class="subtitle">Michał Frąckowiak 275951</p>
+    </div>
+
+    <div class="section">
+        <h1>Lista 9: Model Przyspieszonego Czasu Awarii (Weibull AFT) + PH</h1>
+        <div class="info-box">
+            <strong>Zbiór danych:</strong> pbc (survival package) <br>
+            <strong>Zmienna zależna:</strong> status <br>
+            <strong>Czas przeżycia</strong> time <br>
+            <strong>Charakterystyki:</strong> age, trt, bili, albumin, edema, stage <br>
+        </div>
+        <div class="code-block">
+            <pre><code>
+    aft = WeibullAFTFitter()
+    fit_aft = aft.fit(df, duration_col='time', event_col='status',
+    formula='trt + age + bili + albumin + edema + stage')
+
+    # Rysowanie
+    times = np.linspace(0, 4000, 400)
+    survival_function = fit_aft.predict_survival_function(patient_data, times=times)
+    def survival_at_time_interp(survival_series, t_star):
+    times = survival_series.index.values
+    values = survival_series.values.flatten()
+    return np.interp(t_star, times, values)
+    prob_survival = survival_at_time_interp(survival_function.iloc[:, 0], 2000)
+
+</code></pre>
+        </div>
+        <h2>Zadanie 1-2: Oszacowanie parametrów modelu AFT i ich interpretacja</h2>
+
+        <h3>Podsumowanie modelu Weibull AFT</h3>
+        {{TABELA_AFT_SUMMARY}}
+        <br>
+
+
+        <p>
+            Zmienne <i>age</i> (wiek) oraz <i>trt</i> (leczenie) mają współczynniki exp(COEF) bardzo bliskie jedności (odpowiednio 0.98 i 1.05), co oznacza, że ich realny wpływ na czas przeżycia w tym modelu
+            jest znikomy. Wyraźny wpływ widać przy <i>albuminie</i> (exp(COEF)≈1.73), gdzie każda jednostka wzrostu wydłuża oczekiwany czas do zdarzenia o 73%. Z kolei dla najbardziej zaawansowanego
+            stadium choroby <i>stage 4</i> współczynnik wynosi ok. 0.25, co sugeruje, że ta grupa ma czas przeżycia o 75% krótszy w porównaniu do grupy <i>stage 1</i>.
+        </p>
+
+        <h2>Zadanie 3-4: Funkcja przeżycia dla profilu pacjenta</h2>
+        <p>
+            <strong>Profil pacjenta:</strong>  bili=3, albumin=4, edema=0.5
+        </p>
+
+        <div class="chart-container">
+            <img src="{{WYKRES_AFT_SURV}}" alt="Wykres 1: Oszacowana funkcja przeżycia S(t) dla modelu Weibull AFT">
+            <p class="chart-caption">Wykres 1: Oszacowana funkcja przeżycia S(t) dla modelu Weibull AFT</p>
+        </div>
+
+        <div class="results-box">
+            <h4>Prawdopodobieństwo przeżycia > 2000 dni:</h4>
+            <strong>P(T > 2000):</strong> = {{PROB_AFT_300}} ({{PROB_AFT_300_PCT}})
+        </div>
+
+        <br><br><br><br><br><br><br><br><br>
+
+        <h2>Zadanie 5-6: Interpretacja współczynników</h2>
+        <p>
+            Współczynniki modelu proporcjonalnych hazardów:
+        </p>
+        <ul>
+            <li><strong>Dodatni współczynnik</strong> → wydłużenie czasu przeżycia</li>
+            <li><strong>Ujemny współczynnik</strong> → skrócenie czasu przeżycia</li>
+        </ul>
+        <table>
+            <thead>
+                <tr>
+                    <th>Zmienna</th>
+                    <th>Oszacowanie (estimate)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>trt2</strong></td>
+                    <td>0.05383</td>
+                </tr>
+                <tr>
+                    <td><strong>age</strong></td>
+                    <td>-0.01778</td>
+                </tr>
+                <tr>
+                    <td><strong>bili</strong></td>
+                    <td>-0.07713</td>
+                </tr>
+                <tr>
+                    <td><strong>albumin</strong></td>
+                    <td>0.54811</td>
+                </tr>
+                <tr>
+                    <td><strong>edema0.5</strong></td>
+                    <td>-0.01805</td>
+                </tr>
+                <tr>
+                    <td><strong>edema1</strong></td>
+                    <td>-0.77747</td>
+                </tr>
+                <tr>
+                    <td><strong>stage2</strong></td>
+                    <td>-0.81320</td>
+                </tr>
+                <tr>
+                    <td><strong>stage3</strong></td>
+                    <td>-1.05725</td>
+                </tr>
+                <tr>
+                    <td><strong>stage4</strong></td>
+                    <td>-1.37566</td>
+                </tr>
+                <tr>
+                    <td><strong>Log(scale)</strong></td>
+                    <td>-0.46441</td>
+                </tr>
+            </tbody>
+        </table>
+        <br><br><br><br><br><br><br><br><br><br>
+        <h4>Interpretacja kluczowych wyników (Model PO):</h4>
+        <ul>
+            <li>
+            <li>
+                <strong>edema1:</strong> Zmienna ta drastycznie zwiększa hazard (ryzyko zgonu). Choć w modelu AFT widzimy wartość <strong>-0.777</strong>, w interpretacji PH odpowiada to silnie dodatniemu wpływowi na ryzyko.
+                Pacjenci z silnym obrzękiem są obciążeni znacznie wyższym prawdopodobieństwem wystąpienia zdarzenia w każdej jednostce czasu.
+            </li>
+            <li>
+                <strong>bili:</strong> Każdy wzrost stężenia bilirubiny wiąże się ze zwiększeniem hazardu zgonu. Ujemny współczynnik <strong>-0.077</strong> w modelu czasowym przekłada się na stały,
+                istotny statystycznie (p &lt; 2\cdot 10^{-16}) wzrost ryzyka w modelu PH, co czyni bilirubinę jednym z najsilniejszych markerów postępu choroby.
+            </li>
+            <li>
+                <strong>Log(scale):</strong> Parametr <strong>-0.464</strong> (Scale = 0.629) pozwala powiązać model Weibulla z modelem proporcjonalnych hazardów.
+                Ponieważ Scale jest mniejszy od 1, hazard bazowy rośnie wraz z czasem, co oznacza, że pacjenci z czasem stają się coraz bardziej narażeni na wystąpienie zdarzenia.
+            </li>
+            <li>
+                <strong>albumin:</strong> Wyższy poziom albuminy wykazuje silne działanie ochronne. Dodatnia wartość <strong>0.548</strong> w modelu AFT odpowiada ujemnemu współczynnikowi w modelu PH,
+                co oznacza istotne statystycznie zmniejszenie hazardu (ryzyka) i tym samym znaczną poprawę rokowań pacjenta.
+            </li>
+            <li>
+                <strong>stage4:</strong> Najbardziej zaawansowane stadium choroby (współczynnik <strong>-1.375</strong> w modelu czasowym) generuje najwyższy hazard zgonu spośród wszystkich analizowanych stadiów.
+                Ryzyko rośnie progresywnie wraz ze stopniem zaawansowania (stage2 < stage3 < stage4), co jest spójne z klinicznym obrazem degradacji stanu zdrowia.
+            </li>
+        </ul>
+        <br><br><br><br><br><br><br><br><br><br>
+        <h2>Zadanie 7: Funkcje hazardu dla różnych profili</h2>
+
+        <h3>7a-b) Wykresy funkcji hazardu h(t)</h3>
+        <div class="chart-container">
+            <img src="{{WYKRES_AFT_HAZARD}}" alt="Wykres 2: Funkcje hazardu dla edema=0.5 i edema=1">
+            <p class="chart-caption">Wykres 2: Funkcje hazardu dla edema=0.5 i edema=1</p>
+        </div>
+        <p>
+            Wykres przedstawia funkcję hazardu h(t), gdzie wyższa wartość oznacza większe ryzyko wystąpienia zdarzenia w danym czasie.
+            Grupa edema=1 (linia czerwona) wykazuje znacznie wyższy poziom hazardu niż grupa edema=0.5, co sugeruje ponad dwukrotnie większe
+            ryzyko dla tych pacjentów w szczytowym momencie (ok. 2000 dnia). Podczas gdy ryzyko w grupie niebieskiej rośnie niemal liniowo i stabilizuje
+            się na niskim poziomie, grupa czerwona osiąga wyraźne maksimum, po czym tempo przyrostu ryzyka zaczyna powoli spadać.
+        </p>
+
+        <h3>Wykresy logarytmów funkcji hazardu ln(h(t))</h3>
+        <div class="chart-container">
+            <img src="{{WYKRES_AFT_LNHAZARD}}" alt="Wykres 3: Logarytmy funkcji hazardu">
+            <p class="chart-caption">Wykres 3: Logarytmy funkcji hazardu</p>
+        </div>
+
+        <p class="interpretation">
+            <strong>Wątpliwości co do modelu proporcjonalnych hazardów?</strong><br>
+            W modelu PH linie ln(h(t)) powinny być równoległe (stała różnica).
+            Linie nie zbiegają do siebie zatem nie ma podstaw by stwierdzic naruszenie założenia PH.
+        </p>
+
+        <h2>Zadanie 8-9: Porównanie funkcji przeżycia</h2>
+
+        <h3>Funkcje przeżycia dla obu profili</h3>
+        <div class="chart-container">
+            <img src="{{WYKRES_AFT_SURV_POROWNANIE}}" alt="Wykres 4: Porównanie funkcji przeżycia dla edema=0.5 i edema=1">
+            <p class="chart-caption">Wykres 4: Porównanie funkcji przeżycia dla edema=0.5 i edema=1</p>
+        </div>
+
+        <div class="results-box">
+            <h4>PH Prawdopodobieństwa przeżycia > 2000 dni:</h4>
+            <strong>edema=0.5</strong> {{PROB_AFT_PH1_300}} ({{PROB_AFT_PH1_300_PCT}})<br>
+            <strong> edema=1</strong> {{PROB_AFT_PH2_300}} ({{PROB_AFT_PH2_300_PCT}})<br>
+        </div>
+        <p>
+            Duża rozpiętość krzywych potwierdza, że stopień obrzęku (edema) jest kluczowym czynnikiem drastycznie skracającym przewidywany czas przeżycia
+        </p>
+        <div class="chart-container">
+            <img src="{{WYKRES_AFT_SURV_POROWNANIE5}}" alt="Wykres 5: Porównanie funkcji przeżycia dla różnych modeli">
+            <p class="chart-caption">Wykres 5: Porównanie funkcji przeżycia dla róznych modelli</p>
+            <strong>Porównanie z zadaniem 3:</strong> Wartości są porównywalne.
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <div class="section">
+        <h1>Lista 10: Model Proporcjonalnych Hazardów Coxa</h1>
+
+        <div class="info-box">
+            <strong>Zbiór danych:</strong> pbc (survival package) <br>
+            <strong>Zmienna zależna:</strong> status <br>
+            <strong>Czas przeżycia</strong> time <br>
+            <strong>Charakterystyki:</strong> age, trt, bili, albumin, edema, stage <br>
+        </div>
+
+        <h2>Zadanie 1-2: Oszacowanie parametrów modelu Coxa i ich interpretacja</h2>
+
+        <h3>Podsumowanie modelu Cox PH</h3>
+        {{TABELA_COX_SUMMARY}}
+        <br>
+        <br>
+
+        <p class="interpretation">
+            <strong>Interpretacja współczynników Coxa: (coef)</strong><br>
+            exp(β) = Hazard Ratio (HR) - stosunek ryzyka<br>
+            • HR > 1 → zwiększone ryzyko zgonu<br>
+            • HR < 1 → zmniejszone ryzyko zgonu
+        </p>
+        <h2>Zadanie 3: Bazowe funkcje modelu Coxa</h2>
+
+        <h3>Bazowa skumulowana funkcja hazardu</h3>
+        <div class="chart-container">
+            <img src="{{TABELA_BASELINE_CUMHAZ}}" alt="Bazowa skumulowana funkcja hazardu">
+        </div>
+        <div class="chart-container">
+            <h3>Bazowa funkcja przeżycia</h3>
+            <img src="{{TABELA_BASELINE_SURV}}" alt="Bazowa funkcja przeżycia">
+        </div>
+
+        <div class="code-block">
+            <pre><code>
+        cph = CoxPHFitter()
+        cph.fit(dane, duration_col='time', event_col='status')
+
+        bh = cph.baseline_cumulative_hazard_ # Bazowa skumulowana funkcja hazardu
+        bs = cph.baseline_survival_ # Bazowa funkcja przeżycia
+
+        _, patient_profile1 = wczytaj_i_przygotuj_dane(0.5)
+        _, patient_profile2 = wczytaj_i_przygotuj_dane(1)
+        hazard_function1 = cph.predict_cumulative_hazard(patient_profile1)
+        hazard_function2 = cph.predict_cumulative_hazard(patient_profile2)
+            </code></pre>
+        </div>
+
+        <h2>Zadanie 4: Skumulowane funkcje hazardu dla profili pacjentów</h2>
+
+        <h3>Wykresy skumulowanego hazardu</h3>
+        <div class="chart-container">
+            <img src="{{WYKRES_COX_CUMHAZARD}}" alt="Wykres 5: Skumulowany hazard dla ph.ecog=1 i ph.ecog=2">
+            <p class="chart-caption">Wykres 5: Skumulowany hazard dla ph.ecog=1 i ph.ecog=2</p>
+        </div>
+
+        <h3>Logarytmy skumulowanego hazardu</h3>
+        <div class="chart-container">
+            <img src="{{WYKRES_COX_LNCUMHAZARD}}" alt="Wykres 6: Logarytmy skumulowanego hazardu">
+            <p class="chart-caption">Wykres 6: Logarytmy skumulowanego hazardu</p>
+        </div>
+
+        <p class="interpretation">
+            Linie ln(H(t)) powinny być równoległe w modelu PH i faktycznie są, więc nie ma naruszenia założenia proporcjonalnych hazardów.
+        </p>
+
+        <h2>Zadanie 5-6: Funkcje przeżycia</h2>
+
+        <div class="chart-container">
+            <img src="{{WYKRES_COX_SURV}}" alt="Wykres 7: Funkcje przeżycia z modelu Coxa">
+            <p class="chart-caption">Wykres 7: Funkcje przeżycia z modelu Coxa</p>
+        </div>
+
+        <div class="results-box">
+            <h4>Cox Prawdopodobieństwa przeżycia > 2000 dni:</h4>
+            <strong>edema=0.5:</strong> {{PROB_COX_PH1_300}} ({{PROB_COX_PH1_300_PCT}})<br>
+            <strong>edema=1:</strong> {{PROB_COX_PH2_300}} ({{PROB_COX_PH2_300_PCT}})<br>
+            <br>
+        </div>
+        <div class="results-box">
+            <h4>PH Prawdopodobieństwa przeżycia > 2000 dni:</h4>
+            <strong>edema=0.5</strong> {{PROB_AFT_PH1_300}} ({{PROB_AFT_PH1_300_PCT}})<br>
+            <strong> edema=1</strong> {{PROB_AFT_PH2_300}} ({{PROB_AFT_PH2_300_PCT}})<br>
+        </div>
+        <p>
+            Wykres hazardu pokazuje, że grupa ph.edema=1 jest obarczona ponad dwukrotnie wyższym ryzykiem niż grupa 0.5, co drastycznie obniża krzywe przeżycia.
+            Przy tych samych parametrach, pacjent z edema=1 ma tylko 67% szans na przeżycie 2000 dni, podczas gdy przy edema=0.5 szanse te rosną do 87%.
+        </p>
+        <div class="chart-container">
+            <img src="{{WYKRES_COX_SUR}}" alt="Wykres 8: Funkcje przeżycia z modelu Coxa">
+            <strong>Porównanie z Listą 9:</strong><br>
+            Model Coxa daje prawie identyczne oszacowania
+            jak model Weibull AFT.
+        </div>
+    </div>
+
+
+
+
+
+    <div class="section">
+        <h1>Lista 11: Model proporcjonalnych szans</h1>
+
+        <div class="info-box">
+            <strong>Zbiór danych:</strong> pbc (survival package) <br>
+            <strong>Zmienna zależna:</strong> status <br>
+            <strong>Czas przeżycia</strong> time <br>
+            <strong>Charakterystyki:</strong> age, trt, bili, albumin, edema, stage <br>
+        </div>
+
+        <h2>Zadanie 1-2: Oszacowanie parametrów modelu OrderedModel i ich interpretacja</h2>
+
+        <h3>Parametry modelu</h3>
+        {{TABELA_PO_PARAMS}}
+
+        <p class="interpretation">
+            Wartości śa abliżone do tych z Weibull AFT, PH i CoxPH, co jest zgodne z oczekiwaniami.
+            Interpretujemy je tak samo jak w modelu Weibul lAFT.
+        </p>
+
+        <h2>Zadanie 3: Bazowe funkcje modelu</h2>
+
+        <h3>Bazowa skumulowana funkcja hazardu</h3>
+        <div class="chart-container">
+            <img src="{{TABELA_PO_BASELINE_CUMHAZ}}" alt="Bazowa skumulowana funkcja hazardu">
+            <p class="chart-caption">Oszacowanie bazowego hazardu</p>
+        </div>
+
+        <h3>Bazowa funkcja przeżycia</h3>
+        <div class="chart-container">
+            <img src="{{TABELA_PO_BASELINE_SURV}}" alt="Bazowa funkcja przeżycia">
+            <p class="chart-caption">Oszacowanie bazowej funkcji przeżycia </p>
+        </div>
+
+        <h2>Zadanie 4: Porównanie z modelem Coxa</h2>
+
+        <h3>Skumulowane funkcje hazardu</h3>
+        <div class="chart-container">
+            <img src="{{WYKRES_PO_CUMHAZARD}}" alt="Wykres 8: Skumulowany hazard z modelu Ordered Logit">
+            <p class="chart-caption">Wykres 8: Skumulowany hazard </p>
+        </div>
+
+        <h3>Logarytmy skumulowanego hazardu</h3>
+        <div class="chart-container">
+            <img src="{{WYKRES_PO_LNCUMHAZARD}}" alt="Wykres 9: Logarytmy skumulowanego hazardu">
+            <p class="chart-caption">Wykres 9: Logarytmy skumulowanego hazardu </p>
+        </div>
+
+        <p class="interpretation">
+            <strong>Porównanie z Listą 10:</strong><br>
+            Otrzymane wykresy funkcji hazardu oraz logarytmu skumulowanego hazardu są wyraźne podobne do tych uzyskiwanych w modelu Coxa
+        </p>
+
+        <h2>Zadanie 5-6: Funkcje przeżycia i porównanie</h2>
+
+        <div class="chart-container">
+            <img src="{{WYKRES_PO_SURV}}" alt="Wykres 10: Funkcje przeżycia">
+            <p class="chart-caption">Wykres 10: Funkcje przeżycia dla kategorii czasu</p>
+        </div>
+        <div class="chart-container">
+            <img src="{{WYKRE5_PO_SURV}}" alt="Wykres 10: Funkcje przeżycia z modelu Ordered Logit">
+            <p class="chart-caption">Wykres 10: Funkcje przeżycia dla kategorii czasu</p>
+        </div>
+
+        <div class="results-box">
+            <h4>Prawdopodobieństwa przeżycia dla 2000 dni:</h4>
+            <strong>edema=0.5:</strong> {{PROB_PO_PH1_300}} ({{PROB_PO_PH1_300_PCT}})<br>
+            <h4>Cox Prawdopodobieństwa przeżycia > 2000 dni:</h4>
+            <strong>edema=0.5:</strong> {{PROB_COX_PH1_300}} ({{PROB_COX_PH1_300_PCT}})<br>
+            <br>
+            <strong>Porównanie z Listą 10:</strong><br>
+            Wziualiacja pokazuje umiarkowaną zgodność pomiędzy modelem proporcjonalnych szans a modelem Coxa. Widać wyraźne rozdzielenie krzywych dla edema=0.5: oraz edema=1.
+            Dla edema=0.5 oszacowanie różni się o około 5%.
+        </div>
+    </div>
+
+
+    <div class="section">
+        <h1>Lista 12: Testy Istotnosci Zmiennych</h1>
+
+        <h2>Zadanie 1: Model przyspieszeniowego czasu awarii (AFT Weibull)</h2>
+        <p>
+            Poziom istotnosci: alpha = 0.05<br>
+            Model pelny: time ~ age + bili + albumin + edema + stage + trt
+        </p>
+
+        <h3>1a) Test istotnosci zmiennej age</h3>
+        <p><strong>Hipoteza zerowa H0:</strong> Zmienna age nie jest istotna w modelu (wspolczynnik = 0)</p>
+
+        <div class="code-block">
+            <pre><code>aft_full = WeibullAFTFitter()
+                aft_full.fit(df, duration_col='time', event_col='event')
+
+                # Test Walda
+                age_summary = aft_full.summary[aft_full.summary['covariate'] == 'age']
+                wald_stat = (age_summary['coef'] / age_summary['se(coef)'])**2
+                wald_pvalue = 1 - chi2.cdf(wald_stat, df=1)
+
+                # Test ilorazu wiarygodnosci (LRT)
+                aft_no_age = WeibullAFTFitter()
+                aft_no_age.fit(df[['time', 'event', 'bili', 'albumin', 'edema', 'stage', 'trt']], 
+                            duration_col='time', event_col='event')
+                lrt_stat = 2 * (aft_full.log_likelihood_ - aft_no_age.log_likelihood_)
+                lrt_pvalue = 1 - chi2.cdf(lrt_stat, df=1)
+           </code></pre>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>p-value</th>
+                    <th>Decyzja</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Test Walda</strong></td>
+                    <td>{{AFT_AGE_WALD}}</td>
+                    <td rowspan="2">{{AFT_AGE_WNIOSKI}}</td>
+                </tr>
+                <tr>
+                    <td><strong>Test ilorazu wiarygodnosci (LRT)</strong></td>
+                    <td>{{AFT_AGE_LRT}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>Wniosek:</strong> {{AFT_AGE_WNIOSKI}}</p>
+
+        <h3>1b) Test istotnosci zmiennej trt</h3>
+        <p><strong>Hipoteza zerowa H0:</strong> Zmienna trt nie jest istotna w modelu (wspolczynnik = 0)</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>p-value</th>
+                    <th>Decyzja</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Test Walda</strong></td>
+                    <td>{{AFT_TRT_WALD}}</td>
+                    <td rowspan="2">{{AFT_TRT_WNIOSKI}}</td>
+                </tr>
+                <tr>
+                    <td><strong>Test ilorazu wiarygodnosci (LRT)</strong></td>
+                    <td>{{AFT_TRT_LRT}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>Wniosek:</strong> {{AFT_TRT_WNIOSKI}}</p>
+
+        <h3>1c) Test istotnosci zmiennej stage</h3>
+        <p><strong>Hipoteza zerowa H0:</strong> Rozklad czasu zycia jest taki sam dla pacjentow w roznych stadiach choroby (stage 1, 2, 3, 4)</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>p-value</th>
+                    <th>Decyzja</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Test ilorazu wiarygodnosci (LRT)</strong></td>
+                    <td>{{AFT_STAGE_LRT}}</td>
+                    <td>{{AFT_STAGE_WNIOSKI}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>Wniosek:</strong> {{AFT_STAGE_WNIOSKI}}</p>
+        <br><br><br><br><br><br><br><br><br><br><br>
+        <h2>Zadanie 2: Model proporcjonalnych hazardow Coxa</h2>
+        <p>
+            Poziom istotnosci: alpha = 0.05<br>
+            Model pelny: time ~ age + bili + albumin + edema + stage + trt
+        </p>
+
+        <h3>2a) Test istotnosci zmiennej age</h3>
+        <p><strong>Hipoteza zerowa H0:</strong> Zmienna age nie jest istotna w modelu (wspolczynnik = 0)</p>
+
+        <div class="code-block">
+            <pre><code>cox_full = CoxPHFitter()
+                cox_full.fit(df, duration_col='time', event_col='event')
+
+                # Test Walda
+                age_summary = cox_full.summary[cox_full.summary['covariate'] == 'age']
+                wald_stat = (age_summary['coef'] / age_summary['se(coef)'])**2
+                wald_pvalue = 1 - chi2.cdf(wald_stat, df=1)
+
+                # Test ilorazu wiarygodnosci (LRT)
+                cox_no_age = CoxPHFitter()
+                cox_no_age.fit(df[['time', 'event', 'bili', 'albumin', 'edema', 'stage', 'trt']], 
+                               duration_col='time', event_col='event')
+                lrt_stat = 2 * (cox_full.log_likelihood_ - cox_no_age.log_likelihood_)
+                lrt_pvalue = 1 - chi2.cdf(lrt_stat, df=1)
+            </code></pre>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>p-value</th>
+                    <th>Decyzja</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Test Walda</strong></td>
+                    <td>{{COX_AGE_WALD}}</td>
+                    <td rowspan="2">{{COX_AGE_WNIOSKI}}</td>
+                </tr>
+                <tr>
+                    <td><strong>Test ilorazu wiarygodnosci (LRT)</strong></td>
+                    <td>{{COX_AGE_LRT}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>Wniosek:</strong> {{COX_AGE_WNIOSKI}}</p>
+        <br><br><br><br>
+        <h3>2b) Test istotnosci zmiennej trt</h3>
+        <p><strong>Hipoteza zerowa H0:</strong> Zmienna trt nie jest istotna w modelu (wspolczynnik = 0)</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>p-value</th>
+                    <th>Decyzja</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Test Walda</strong></td>
+                    <td>{{COX_TRT_WALD}}</td>
+                    <td rowspan="2">{{COX_TRT_WNIOSKI}}</td>
+                </tr>
+                <tr>
+                    <td><strong>Test ilorazu wiarygodnosci (LRT)</strong></td>
+                    <td>{{COX_TRT_LRT}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>Wniosek:</strong> {{COX_TRT_WNIOSKI}}</p>
+
+        <h3>2c) Test istotnosci zmiennej stage</h3>
+        <p><strong>Hipoteza zerowa H0:</strong> Rozklad czasu zycia jest taki sam dla pacjentow w roznych stadiach choroby (stage 1, 2, 3, 4)</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Test</th>
+                    <th>p-value</th>
+                    <th>Decyzja</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Test ilorazu wiarygodnosci (LRT)</strong></td>
+                    <td>{{COX_STAGE_LRT}}</td>
+                    <td>{{COX_STAGE_WNIOSKI}}</td>
+                </tr>
+            </tbody>
+        </table>
+        <p><strong>Wniosek:</strong> {{COX_STAGE_WNIOSKI}}</p>
+        <br><br><br><br><br><br><br><br><br><br>
+        <h2>Zadanie 3: Selekcja zmiennych dla modelu AFT</h2>
+
+        <h3>3a) Metoda eliminacji wstecznej (backward elimination)</h3>
+        <p>Rozpoczynamy od pelnego modelu i iteracyjnie usuwamy najmniej istotna zmienna (najwyzsze p-value z testu LRT), dopoki wszystkie zmienne nie beda istotne (p < 0.05).</p>
+
+        <div class="code-block">
+            <pre><code>current_vars = ['age', 'bili', 'albumin', 'edema', 'stage', 'trt']
+                while True:
+                    # Dopasuj model z aktualnymi zmiennymi
+                    current_model = WeibullAFTFitter()
+                    current_model.fit(df[['time', 'event'] + current_vars], 
+                                      duration_col='time', event_col='event')
+                    max_pvalue = 0
+                    var_to_remove = None
+                    for var in current_vars:
+                        reduced_vars = [v for v in current_vars if v != var]
+                        reduced_model = WeibullAFTFitter()
+                        reduced_model.fit(df[['time', 'event'] + reduced_vars], 
+                                          duration_col='time', event_col='event')
+                        lrt_stat = 2 * (current_model.log_likelihood_ - reduced_model.log_likelihood_)
+                        pvalue = 1 - chi2.cdf(lrt_stat, df=1)
+        
+                        if pvalue > max_pvalue:
+                            max_pvalue = pvalue
+                            var_to_remove = var
+    
+                    # Jesli wszystkie zmienne istotne (p < 0.05), zakoncz
+                    if max_pvalue < 0.05:
+                        break
+
+                    current_vars.remove(var_to_remove)</code></pre>
+        </div>
+
+        <p><strong>Zmienne koncowe:</strong> {{AFT_BACKWARD_VARS}}</p>
+
+
+        <h3>3b) Kryterium AIC</h3>
+        <p>Wybieramy model o najnizszej wartosci AIC = -2*log-likelihood + 2*k, gdzie k to liczba parametrow.</p>
+
+        <div class="code-block">
+            <pre><code>from itertools import combinations
+                best_aic = inf
+                best_vars = []
+
+                # Przeszukaj wszystkie mozliwe kombinacje zmiennych
+                for r in range(1, 7):
+                    for var_combo in combinations(['age', 'bili', 'albumin', 'edema', 'stage', 'trt'], r):
+                        model = WeibullAFTFitter()
+                        model.fit(df[['time', 'event'] + list(var_combo)], 
+                                  duration_col='time', event_col='event')
+        
+                        aic = -2 * model.log_likelihood_ + 2 * len(model.params_)
+        
+                        if aic < best_aic:
+                            best_aic = aic
+                            best_vars = list(var_combo)
+            </code></pre>
+        </div>
+
+        <p><strong>Najlepsze zmienne:</strong> {{AFT_AIC_VARS}}</p>
+        <br><br><br><br><br><br><br><br><br><br><br><br><br>
+        <h3>3c) Kryterium BIC</h3>
+        <p>Wybieramy model o najnizszej wartosci BIC = -2*log-likelihood + log(n)*k, gdzie n to liczba obserwacji, k to liczba parametrow.</p>
+
+        <div class="code-block">
+            <pre><code>best_bic = inf
+                best_vars = []
+                n = len(df)
+
+                # Przeszukaj wszystkie mozliwe kombinacje zmiennych
+                for r in range(1, 7):
+                    for var_combo in combinations(['age', 'bili', 'albumin', 'edema', 'stage', 'trt'], r):
+                        model = WeibullAFTFitter()
+                        model.fit(df[['time', 'event'] + list(var_combo)], 
+                                  duration_col='time', event_col='event')
+        
+                        bic = -2 * model.log_likelihood_ + log(n) * len(model.params_)
+        
+                        if bic < best_bic:
+                            best_bic = bic
+                            best_vars = list(var_combo)
+            </code></pre>
+        </div>
+
+        <p><strong>Najlepsze zmienne:</strong> {{AFT_BIC_VARS}}</p>
+        <br><br><br><br><br><br><br><br><br><br><br><br><br><br><br><br>
+        <h2>Zadanie 4: Selekcja zmiennych dla modelu Coxa</h2>
+
+        <h3>4a) Metoda eliminacji wstecznej (backward elimination)</h3>
+        <p>Analogicznie jak w zadaniu 3a, ale dla modelu Coxa.</p>
+
+        <div class="code-block">
+            <pre><code>current_vars = ['age', 'bili', 'albumin', 'edema', 'stage', 'trt']
+                while True:
+                    current_model = CoxPHFitter()
+                    current_model.fit(df[['time', 'event'] + current_vars], 
+                                      duration_col='time', event_col='event')
+                    max_pvalue = 0
+                    var_to_remove = None
+                    for var in current_vars:
+                        reduced_vars = [v for v in current_vars if v != var]
+                        reduced_model = CoxPHFitter()
+                        reduced_model.fit(df[['time', 'event'] + reduced_vars], 
+                                          duration_col='time', event_col='event') 
+                        lrt_stat = 2 * (current_model.log_likelihood_ - reduced_model.log_likelihood_)
+                        pvalue = 1 - chi2.cdf(lrt_stat, df=1)
+                        if pvalue > max_pvalue:
+                            max_pvalue = pvalue
+                            var_to_remove = var
+                    if max_pvalue < 0.05:
+                        break
+                        current_vars.remove(var_to_remove)</code></pre>
+        </div>
+
+        <p><strong>Zmienne koncowe:</strong> {{COX_BACKWARD_VARS}}</p>
+        <br><br><br>
+        <h3>4b) Kryterium AIC</h3>
+        <p>Wybieramy model o najnizszej wartosci AIC.</p>
+
+        <div class="code-block">
+            <pre><code>best_aic = inf
+                best_vars = []
+
+                for r in range(1, 7):
+                    for var_combo in combinations(['age', 'bili', 'albumin', 'edema', 'stage', 'trt'], r):
+                        model = CoxPHFitter()
+                        model.fit(df[['time', 'event'] + list(var_combo)], 
+                                  duration_col='time', event_col='event')
+        
+                        aic = -2 * model.log_likelihood_ + 2 * len(model.params_)
+        
+                        if aic < best_aic:
+                            best_aic = aic
+                            best_vars = list(var_combo)</code></pre>
+        </div>
+
+        <p><strong>Najlepsze zmienne:</strong> {{COX_AIC_VARS}}</p>
+
+        <h3>4c) Kryterium BIC</h3>
+        <p>Wybieramy model o najnizszej wartosci BIC.</p>
+
+        <p><strong>Najlepsze zmienne:</strong> {{COX_BIC_VARS}}</p>
+    </div>
+</body>
+</html>
+
