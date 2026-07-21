@@ -1,0 +1,253 @@
+---
+title: "Raport 2"
+author: "Michał Frąckowiak 275951 Matusz Goszczyński 275959"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    fig_caption: true
+    fig_width: 5
+    fig_height: 4
+    number_sections: true
+  html_document:
+    toc: true
+    df_print: paged
+  word_document:
+    toc: true
+header-includes:
+- \usepackage[OT4]{polski}
+- \usepackage[utf8]{inputenc}
+- \usepackage{graphicx}
+- \usepackage{float}
+subtitle: Eksploracja danych
+fontsize: 12pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Krótki opis zagadnienia
+
+W tym dokumencie przeprowadzimy redukcję wymiarowości danych Titanic przy użyciu metody skalowania wielowymiarowego (MDS). Będziemy analizować, jak poszczególne cechy pasażerów wpływają na ich rozmieszczenie w przestrzeni zredukowanej, ze szczególnym uwzględnieniem zmiennej `Survived`.
+
+\newpage
+
+# Opis eksperymentów/analiz
+
+W niniejszym raporcie analizowane są dane dotyczące pasażerów statku Titanic, a głównym celem jest zastosowanie metody skalowania wielowymiarowego (MDS) do redukcji wymiarowości danych oraz oceny zależności pomiędzy zmiennymi opisującymi pasażerów a ich przeżyciem. Analiza rozpoczyna się od przygotowania danych oraz obliczenia macierzy odległości między obserwacjami. W tym celu wykorzystana zostaje funkcja daisy() z pakietu cluster, która umożliwia uwzględnienie zarówno zmiennych ilościowych, jak i jakościowych.
+
+Na podstawie wyznaczonej macierzy odległości przeprowadzana jest analiza klasycznym MDS-em przy użyciu funkcji cmdscale(), która odwzorowuje dane w przestrzeni dwuwymiarowej. Dla celów wizualnych tworzony jest wykres punktowy, na którym obserwacje kolorowane są według zmiennej Survived, co umożliwia ocenę wizualnej separacji klas (pasażerów, którzy przeżyli i tych, którzy zginęli).
+
+W eksperymentach porównywane są różne warianty analizy: obejmujące wszystkie zmienne jednocześnie, jedynie zmienne jakościowe, a także wyłącznie zmienne ilościowe. Pozwala to ocenić, które grupy cech najlepiej odwzorowują strukturę danych w przestrzeni dwuwymiarowej. Szczególną uwagę poświęca się jakości odwzorowania oraz interpretowalności uzyskanych wyników. 
+
+# Opis zmiennych
+
+```{r load-packages, echo=FALSE}
+library(dplyr)      # manipulacja danymi
+library(ggplot2)    # wizualizacja
+library(MASS)       # dla metody MDS
+library(cluster)    # dla funkcji daisy()
+library(titanic)    # dla tabelki
+library(xtable)
+data(titanic_train)
+```
+
+```{r TabelkaTitanic, echo=FALSE, results='asis'}
+nazwy_zmiennych <- c("PassengerId", "Survived", "Pclass", "Name", "Sex", 
+                     "Age", "SibSp", "Parch", "Ticket", "Fare", 
+                     "Cabin", "Embarked")
+
+opisy_zmiennych <- c("Unikalny identyfikator pasażera",
+                     "Czy pasażer przeżył (0 = Nie, 1 = Tak)",
+                     "Klasa podróży (1 = 1. klasa, 2 = 2. klasa, 3 = 3. klasa)",
+                     "Imię i nazwisko pasażera",
+                     "Płeć pasażera (male, female)",
+                     "Wiek pasażera",
+                     "Liczba rodzeństwa/małżonków na pokładzie",
+                     "Liczba rodziców/dzieci na pokładzie",
+                     "Numer biletu",
+                     "Opłata za bilet",
+                     "Numer kabiny (może być brak danych)",
+                     "Port zaokrętowania (C = Cherbourg, Q = Queenstown, S = Southampton)")
+
+typy_zmiennych <- c("integer", "factor", "factor", "character", "factor", 
+                    "numeric", "integer", "integer", "character", "numeric", 
+                    "character", "factor")
+
+data_matrix <- cbind(1:length(nazwy_zmiennych), nazwy_zmiennych, opisy_zmiennych, typy_zmiennych)
+colnames(data_matrix) <- c("Lp", "Nazwa_zmiennej", "Opis_zmiennej", "Typ")
+
+tab <- xtable(data_matrix, 
+              caption = "Opis zmiennych w zbiorze Titanic", 
+              label = "tab:TitanicDane", 
+              align = c("c", "c", "l", "p{7cm}", "l"))
+
+print(tab, type = "latex", table.placement = "H", comment=FALSE)
+```
+
+\newpage
+
+```{r load-data}
+
+# Usunięcie zmiennych identyfikujących
+titanic_data <- titanic_train %>% 
+  dplyr::select(-PassengerId, -Name, -Ticket, -Cabin)
+
+# Przekształcenie zmiennych na factor
+titanic_data <- as.data.frame(lapply(titanic_data, function(x) {
+  if(is.character(x)) {
+    return(as.factor(x))
+  } else {
+    return(x)
+  }
+}))
+```
+\begin{figure}
+\centering
+\label{fig:load-data}
+\end{figure}
+
+Fragment kodu odpowiada za przygotowanie danych do dalszej analizy. W pierwszej kolejności usuwane są zmienne identyfikujące(\ref{fig:load-data})., takie jak PassengerId, Name, Ticket oraz Cabin, ponieważ nie zawierają one informacji istotnych z punktu widzenia analizy struktury danych i mogą wprowadzać zakłócenia przy obliczaniu miar odległości. Następnie wszystkie zmienne typu tekstowego (character) są automatycznie przekształcane na zmienne typu czynnikowego (factor)(\ref{fig:load-data})., co pozwala na ich właściwe uwzględnienie jako zmiennych kategorycznych podczas dalszego przetwarzania, w szczególności przy obliczaniu macierzy odległości
+
+## Obliczenie macierzy odmienności (dissimilarity matrix)
+
+Tworzymy macierz odmienności dla danych, pomijając zmienną `Survived` zgodnie z wymaganiami:
+
+```{r dissimilarity-matrix}
+# Przygotowanie danych bez zmiennej Survived (ale zachowujemy ją do późniejszej analizy)
+titanic_features <- titanic_data %>% dplyr::select(-Survived)
+
+# Obliczenie macierzy odmienności przy użyciu metryki Gowera
+dissim_matrix <- daisy(titanic_features, metric = "gower")
+
+# Podgląd fragmentu macierzy odmienności
+as.matrix(dissim_matrix)[1:5, 1:5]
+```
+
+\newpage
+
+## Diagram Sheparda do oceny jakości odwzorowania
+
+```{r shepard-diagram-function}
+# Obliczenie odległości euklidesowych w przestrzeni MDS
+mds_metric_2d <- cmdscale(dissim_matrix, k = 2, eig = TRUE)
+mds_metric_2d_coords <- mds_metric_2d$points
+mds_distances <- dist(mds_metric_2d_coords)
+
+# Przygotowanie danych do wykresu
+shepard_data <- data.frame(
+  original_dist = as.vector(dissim_matrix),
+  mds_dist = as.vector(mds_distances)
+)
+# Wykres Sheparda
+ggplot(shepard_data, aes(x = original_dist, y = mds_dist)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(
+    title = paste("Diagram Sheparda - Metryczne MDS"),
+    x = "Odległości oryginalne",
+    y = "Odległości w przestrzeni MDS"
+  ) +
+  theme_minimal()
+
+```
+\begin{figure}
+\centering
+\label{fig:shepard-diagram-function}
+\end{figure}
+
+Diagram Sheparda(\ref{fig:shepard-diagram-function}) ilustruje jakość dopasowania odwzorowania wielowymiarowych danych do przestrzeni dwuwymiarowej za pomocą metody MDS. Punkty rozmieszczone blisko linii y = x wskazują na dobre odwzorowanie – oznacza to, że struktura relacji między obiektami została zachowana. 
+
+```{r corelation}
+# Obliczenie współczynnika korelacji jako miary jakości odwzorowania
+correlation <- cor(shepard_data$original_dist, shepard_data$mds_dist)
+cat(paste0("Współczynnik korelacji dla Metryczne MDS 2D: ", round(correlation, 4), "\n"))
+```
+\begin{figure}
+\centering
+\label{fig:corelation}
+\end{figure}
+
+Wysoki współczynnik korelacji(\ref{fig:corelation}) świadczy o dobrym odwzorowaniu odległości między punktami w przestrzeni dwuwymiarowej, co oznacza, że metryczne MDS skutecznie zachowuje relacje przestrzenne obecne w danych przed redukcją wymiarowości.
+
+## Wizualizacja danych
+
+### Wizualizacja MDS z kolorami według zmiennej Survived
+
+```{r visualize-survived, fig.width=10, fig.height=5}
+# Dodanie nazw kolumn do wyników MDS (jeśli ich nie ma)
+colnames(mds_metric_2d_coords) <- c("Dim1", "Dim2")
+
+# Dodanie zmiennej Survived do wyników MDS
+
+mds_metric_2d_with_survived <- data.frame(mds_metric_2d_coords, 
+                                          Survived = titanic_data$Survived)
+
+
+# Wykresy 2D z kolorami według Survived
+ggplot(mds_metric_2d_with_survived, aes(x = Dim1, y = Dim2, color = factor(Survived))) +
+  geom_point(alpha = 1) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"),
+                     labels = c("0" = "No", "1" = "Yes")) +
+  labs(title = "Metryczne MDS (2D) z kolorami według Survived", color = "Przeżył") +
+  theme_minimal()
+```
+\begin{figure}
+\centering
+\label{fig:visualize-survived}
+\end{figure}
+
+Osoby, które przeżyły katastrofę (kolor niebieski), wydają się częściowo grupować w określonych obszarach przestrzeni MDS, co sugeruje, że cechy wykorzystane do analizy (Sex, Class, Age) mają związek z przeżywalnością(\ref{fig:visualize-survived}). Nie jest to jednak całkowite rozdzielenie grup, co wskazuje, że same te cechy nie są w pełni determinujące przeżywalność.
+
+### Wizualizacja MDS z kolorami według zmiennych Sex i Pclass
+
+```{r visualize-sex}
+# Dodanie zmiennych Sex i Pclass do wyników MDS
+mds_metric_2d_with_features <- cbind(mds_metric_2d_coords,
+                                     Sex = titanic_data$Sex,
+                                     Pclass = titanic_data$Pclass)
+
+# Wykres 2D z kolorami według Sex
+ggplot(mds_metric_2d_with_features, aes(x = Dim1, y = Dim2, color = factor(Sex))) +
+  geom_point(alpha = 0.7) +
+  labs(title = "Metryczne MDS (2D) z kolorami według Sex", color = "Płeć") +
+  geom_text(aes(label = Sex)) +
+  theme_minimal()
+```
+
+\begin{figure}
+\centering
+\label{fig:visualize-sex}
+\end{figure}
+
+Pasażerowie płci męskiej i żeńskiej tworzą dość wyraźne, oddzielne skupiska, co sugeruje, że płeć jest istotnym czynnikiem różnicującym(\ref{fig:visualize-sex}).
+
+```{r visualize-pclass}
+# Wykres 2D z kolorami według Pclass
+ggplot(mds_metric_2d_with_features, aes(x = Dim1, y = Dim2, color = factor(Pclass))) +
+  geom_point(alpha = 0.7) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = "Metryczne MDS (2D) z kolorami według Pclass", color = "Klasa") +
+  theme_minimal()
+```
+
+\begin{figure}
+\centering
+\label{fig:visualize-pclass}
+\end{figure}
+
+Obserwujemy tendencję do formowania się odrębnych skupisk punktów odpowiadających poszczególnym klasom. Mimo pewnego stopnia nakładania się obserwacji, szczególnie pomiędzy klasą 2 i 3, ogólna struktura przestrzenna sugeruje, że klasa podróży ma wpływ na rozmieszczenie danych(\ref{fig:visualize-pclass}).
+
+## Obserwacje nietypowe
+
+Na wykresach widoczne są pojedyncze punkty oddalone od głównych skupisk, co może wskazywać na obserwacje nietypowe. Te nietypowe przypadki mogą reprezentować pasażerów, którzy nie pasują do ogólnych wzorców związanych z ich grupą demograficzną, np.:
+- Mężczyźni z pierwszej klasy, którzy przeżyli (mimo że większość mężczyzn nie przeżyła)
+- Kobiety z trzeciej klasy, które nie przeżyły (mimo że większość kobiet przeżyła)
+
+# Podsumowanie
+
+Analiza MDS potwierdza znaną historyczną prawidłowość, że płeć i klasa podróży były kluczowymi czynnikami wpływającymi na przeżywalność podczas katastrofy Titanica.\newline
+- Kobiety z wyższych klas miały największe szanse na przeżycie, co widać w grupowaniu na wykresach(\ref{fig:visualize-sex})(\ref{fig:visualize-pclass}).\newline
+- Mężczyźni z niższych klas mieli najmniejsze szanse na przeżycie(\ref{fig:visualize-sex})(\ref{fig:visualize-pclass}).\newline
+- Istnieją wyjątki od tych reguł, widoczne jako punkty oddalone od głównych skupisk(\ref{fig:shepard-diagram-function}).

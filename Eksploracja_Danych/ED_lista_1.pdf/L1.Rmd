@@ -1,0 +1,250 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+```
+
+# Krótki opis zagadnienia
+
+Naszym celem jest eksploracja danych dotyczących klientów firmy telekomunikacyjnej oraz analiza czynników wpływających na ich rezygnację z usług. W szczególności:
+
+- Jakie cechy klientów wpływają na decyzję o rezygnacji?
+- Jakie są główne różnice między klientami, którzy pozostają, a tymi, którzy odchodzą?
+- Czy można przewidzieć odejście klienta na podstawie dostępnych danych?
+
+# Opis eksperymentów/analiz
+
+- *Dane*: Zbiór *WA_Fn-UseC_-Telco-Customer-Churn.csv* (źródło: [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)).
+- *Eksperymenty*:
+  - Wczytanie i wstępna eksploracja danych.
+  - Analiza opisowa zmiennych.
+  - Podział klientów na grupy (Churn = "Yes" vs Churn = "No").
+  - Wizualizacja rozkładu cech i zależności między zmiennymi.
+- *Narzędzia*:
+  - Wykresy (histogramy, pudełkowe, słupkowe, wykresy rozrzutu).
+  - Wskaźniki statystyczne (średnia, mediana, odchylenie standardowe).
+
+# Wczytanie danych
+
+```{r, echo=FALSE}
+data <- read.csv("C:/Users/micha/OneDrive/Dokumenty/GitHub/EKSPLORACJA-DANYCH/lista1/WA_Fn-UseC_-Telco-Customer-Churn.csv",
+                 sep = ",", header = TRUE, stringsAsFactors = TRUE)
+```
+
+# Opis zmiennych
+
+```{r echo=FALSE}
+data_description <- data.frame(
+  Lp = 1:21,
+  Nazwa_zmiennej = c("customerID", "gender", "SeniorCitizen", "Partner", "Dependents", "tenure", "PhoneService", "MultipleLines", 
+                     "InternetService", "OnlineSecurity", "OnlineBackup", "DeviceProtection", "TechSupport", "StreamingTV", 
+                     "StreamingMovies", "Contract", "PaperlessBilling", "PaymentMethod", "MonthlyCharges", "TotalCharges", "Churn"),
+  Opis_zmiennej = c("Unikalny identyfikator klienta", "Płeć klienta (Male, Female)", "Czy klient jest seniorem (0 = Nie, 1 = Tak)", 
+                    "Czy klient ma partnera (Yes, No)", "Czy klient ma osoby na utrzymaniu (Yes, No)", "Liczba miesięcy bycia klientem", 
+                    "Czy klient ma usługę telefoniczną (Yes, No)", "Czy klient ma wiele linii telefonicznych", 
+                    "Rodzaj internetu (DSL, Fiber optic, No)", "Czy klient ma usługę zabezpieczeń online", "Czy klient ma usługę backupu online", 
+                    "Czy klient ma usługę ochrony urządzeń", "Czy klient ma wsparcie techniczne", "Czy klient ma usługę TV streamingowego", 
+                    "Czy klient ma usługę filmów streamingowych", "Typ umowy (Month-to-month, One year, Two year)", 
+                    "Czy klient korzysta z e-faktury (Yes, No)", "Metoda płatności", "Miesięczna opłata (w dolarach)", 
+                    "Łączne opłaty (w dolarach)", "Czy klient odszedł (Yes, No)"),
+  Typ = c("character", "factor", "numeric", "factor", "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor", "factor", 
+          "factor", "factor", "factor", "factor", "factor", "numeric", "numeric", "factor")
+)
+
+kable(data_description, caption = "Tabela: Opis zmiennych w zbiorze Telco Customer Churn")
+```
+
+
+```{r, echo=FALSE}
+# Liczba przypadków i cech
+dim(data)
+```
+
+W zestawie danych mamy 7043 obserwacji i 21 zmiennych.
+
+```{r}
+# Usuwamy klucz główny, bo nie przyda się w analizie danych
+data$customerID <- NULL
+```
+
+Sprawdzamy, ile wartości brakuje w każdej kolumnie zbioru danych:
+
+```{r}
+colSums(is.na(data))
+```
+
+Widzimy, że braki występują głównie w zmiennej *TotalCharges*. Po sprawdzeniu:
+
+```{r}
+data[is.na(data$TotalCharges), "tenure"]
+```
+
+możemy stwierdzić, że brak wartości w *TotalCharges* dotyczy klientów, którzy dopiero rozpoczęli subskrypcję (mają `tenure` równy 0).
+
+
+Dla zmiennych takich jak *tenure*, *MonthlyCharges* oraz *TotalCharges* wyznaczymy:
+
+- Liczebność obserwacji (n)
+- Średnią (mean)
+- Medianę
+- Odchylenie standardowe (std)
+- Wartości minimalne i maksymalne
+- Kwartyle (Q1, Q3)
+- Odchylenie standardowe
+
+```{r, echo=TRUE}
+summary(data$tenure)
+summary(data$MonthlyCharges)
+summary(data$TotalCharges)
+```
+
+```{r echo=FALSE}
+cat("Odchylenie standardowe dla tenure:", sd(data$tenure, na.rm = TRUE), "\n")
+cat("Odchylenie standardowe dla MonthlyCharges:", sd(data$MonthlyCharges, na.rm = TRUE), "\n")
+cat("Odchylenie standardowe dla TotalCharges:", sd(data$TotalCharges, na.rm = TRUE), "\n")
+```
+
+Dla zmiennych takich jak *gender*, *SeniorCitizen*, *Partner*, *Dependents*, *PhoneService*, *InternetService*, *Contract*, *PaymentMethod* czy *Churn* warto przedstawić ich rozkład.
+
+```{r, echo=TRUE}
+table(data$gender)
+table(data$SeniorCitizen)
+table(data$Partner)
+table(data$Churn)
+
+# Procentowy udział
+prop.table(table(data$Churn)) * 100
+```
+
+Dla przykładu wykreślimy wykresy słupkowe dla zmiennych *InternetService* oraz *Contract*.
+
+```{r, echo=FALSE, fig.cap="Wykres słupkowy dla zmiennych kategorycznych"}
+library(ggplot2)
+
+# Wykres słupkowy dla InternetService
+ggplot(data, aes(x = InternetService)) +
+  geom_bar(fill = "salmon") +
+  ggtitle("Rozkład zmiennej 'InternetService'") +
+  xlab("Rodzaj internetu") + ylab("Liczba klientów")
+
+# Wykres słupkowy dla Contract
+ggplot(data, aes(x = Contract)) +
+  geom_bar(fill = "lightgreen") +
+
+  ggtitle("Rozkład zmiennej 'Contract'") +
+  xlab("Rodzaj umowy") + ylab("Liczba klientów")
+```
+
+Przedstawimy histogramy i wykresy pudełkowe dla zmiennych **tenure**, **MonthlyCharges** i **TotalCharges**.
+
+```{r, echo=FALSE, fig.cap="Histogramy zmiennych numerycznych"}
+par(mfrow = c(1,3))
+hist(data$tenure, main="Histogram tenure", xlab="Liczba miesięcy", col="lightblue")
+hist(data$MonthlyCharges, main="Histogram MonthlyCharges", xlab="Miesięczna opłata", col="lightgreen")
+hist(data$TotalCharges, main="Histogram TotalCharges", xlab="Łączne opłaty", col="lightcoral")
+```
+
+```{r, echo=FALSE, fig.cap="Boxploty zmiennych numerycznych"}
+par(mfrow = c(1,3))
+boxplot(data$tenure, main="Boxplot tenure", col="lightblue")
+boxplot(data$MonthlyCharges, main="Boxplot MonthlyCharges", col="lightgreen")
+boxplot(data$TotalCharges, main="Boxplot TotalCharges", col="lightcoral")
+```
+
+Przeanalizujemy zależności między wybranymi !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+```{r, echo=FALSE, fig.cap="Wykres rozrzutu: tenure vs MonthlyCharges podzielony według InternetService"}
+ggplot(data, aes(x = tenure, y = MonthlyCharges)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  facet_wrap(~ InternetService) +
+  ggtitle("Rozrzut: tenure vs MonthlyCharges (podział wg InternetService)") +
+  xlab("Liczba miesięcy") +
+  ylab("Miesięczna opłata")
+```
+
+
+```{r, echo=FALSE, fig.cap="Wykres rozrzutu: tenure vs TotalCharges"}
+ggplot(data, aes(x = tenure, y = TotalCharges)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  facet_wrap(~ InternetService) +
+  ggtitle("Rozrzut: tenure vs TotalCharges") +
+  xlab("Liczba miesięcy") + ylab("Łączne opłaty")
+```
+
+```{r, echo=FALSE, fig.cap="Wykres rozrzutu: MonthlyCharges vs TotalCharges"}
+ggplot(data, aes(x = MonthlyCharges, y = TotalCharges)) +
+  geom_point(alpha = 0.5, color = "purple") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  facet_wrap(~ InternetService) +
+  ggtitle("Rozrzut: MonthlyCharges vs TotalCharges") +
+  xlab("Miesięczna opłata") + ylab("Łączne opłaty")
+```
+
+Dodatkowo, wyznaczymy współczynniki korelacji między tymi zmiennymi:
+
+```{r, echo=FALSE}
+cor_tenure_monthly <- cor(data$tenure, data$MonthlyCharges, use = "complete.obs")
+cor_tenure_total <- cor(data$tenure, data$TotalCharges, use = "complete.obs")
+cor_monthly_total <- cor(data$MonthlyCharges, data$TotalCharges, use = "complete.obs")
+
+cat("Korelacja między tenure a MonthlyCharges:", cor_tenure_monthly, "\n")
+cat("Korelacja między tenure a TotalCharges:", cor_tenure_total, "\n")
+cat("Korelacja między MonthlyCharges a TotalCharges:", cor_monthly_total, "\n")
+```
+
+Warto jednak zaznaczyć, że gdy podzielimy dane *MonthlyCharges* ze względu na *InternetService* współczynniki korelacji się zmienia
+
+```{r echo=FALSE}
+cor_by_internet_lambda <- sapply(split(data, data$InternetService),
+                                   function(df) cor(df$MonthlyCharges, df$TotalCharges, use = "complete.obs"))
+print(cor_by_internet_lambda)
+```
+
+Postarajmy sie teraz odpowiedziec Chrun = Yes / No!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+```{r, echo=FALSE, fig.cap="Wykres słupkowy dla zmiennych kategorycznych vs Churn"}
+library(ggplot2)
+
+# Wykres słupkowy dla InternetService
+ggplot(data, aes(x = InternetService)) +
+  geom_bar(fill = "salmon") +
+  facet_wrap(~ Churn) +
+  ggtitle("Rozkład zmiennej 'InternetService'") +
+  xlab("Rodzaj internetu") + ylab("Liczba klientów")
+
+# Wykres słupkowy dla Contract
+ggplot(data, aes(x = Contract)) +
+  geom_bar(fill = "lightgreen") +
+  facet_wrap(~ Churn) +
+  ggtitle("Rozkład zmiennej 'Contract'") +
+  xlab("Rodzaj umowy") + ylab("Liczba klientów")
+```
+
+```{r, echo=FALSE, fig.cap="Wykres rozrzutu: tenure vs TotalCharges vs Churn"}
+ggplot(data, aes(x = tenure, y = TotalCharges)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  facet_wrap(~ Churn) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  ggtitle("Rozrzut: tenure vs TotalCharges") +
+  xlab("Liczba miesięcy") + ylab("Łączne opłaty")
+```
+
+```{r,echo=FALSE, fig.cap="Wykres rozrzutu: MonthlyCharges vs TotalCharges vs Churn"}
+ggplot(data, aes(x = MonthlyCharges, y = TotalCharges)) +
+  geom_point(alpha = 0.5, color = "purple") +
+  facet_wrap(~ Churn) +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  ggtitle("Rozrzut: MonthlyCharges vs TotalCharges") +
+  xlab("Miesięczna opłata") + ylab("Łączne opłaty")
+```
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Reszta dla cb :)
+W jezeli cos stwierdzamy w komentarzu zawsze ma byc odwołanie do chunka
+Rysunek \ref{fig:Wykres rozrzutu: MonthlyCharges vs TotalCharges vs Churn} pokazuje że jest zależność

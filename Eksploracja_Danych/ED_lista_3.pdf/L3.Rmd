@@ -1,0 +1,459 @@
+---
+title: "Raport 3"
+author: "Michał Frąckowiak 275951 Matusz Goszczyński 275959"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    fig_caption: true
+    fig_width: 5
+    fig_height: 4
+    number_sections: true
+  html_document:
+    toc: true
+    df_print: paged
+  word_document:
+    toc: true
+header-includes:
+- \usepackage[OT4]{polski}
+- \usepackage[utf8]{inputenc}
+- \usepackage{graphicx}
+- \usepackage{float}
+subtitle: Eksploracja danych
+fontsize: 12pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Krótki opis zagadnienia
+Celem niniejszej analizy jest zbadanie możliwości zastosowania regresji liniowej jako metody klasyfikacji danych. W tym celu wykorzystano klasyczny zbiór danych iris zawierający pomiary czterech cech botanicznych trzech gatunków irysów. Problem klasyfikacji polega na przypisaniu nowej obserwacji do jednej z trzech klas na podstawie dostępnych cech ilościowych.
+
+Analiza ma na celu odpowiedzieć na następujące pytania:
+
+* Czy regresja liniowa może skutecznie rozdzielać klasy w zadaniu klasyfikacyjnym?
+* Jakie są ograniczenia klasyfikatora liniowego w kontekście nakładających się klas?
+* Czy rozszerzenie przestrzeni cech o składniki wielomianowe poprawia jakość klasyfikacji?
+
+```{r, echo=FALSE}
+library(ggplot2)
+library(xtable)
+library(knitr)
+data(iris)
+```
+
+```{r, results = 'asis', echo=FALSE}
+wszystkie_zmienne <- data.frame(
+  "Nazwa zmiennej" = c(
+    "Sepal.Length",
+    "Sepal.Width",
+    "Petal.Length",
+    "Petal.Width",
+    "Species"
+  ),
+  "Typ zmiennej" = c(
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "numeryczna (ciągła)",
+    "kategoryczna (factor)"
+  ),
+  "Opis" = c(
+    "Długość działki kielicha w centymetrach",
+    "Szerokość działki kielicha w centymetrach",
+    "Długość płatka w centymetrach",
+    "Szerokość płatka w centymetrach",
+    "Gatunek irysa, jeden z trzech: setosa, versicolor, virginica"
+  ),
+  "Rola" = c(
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna objaśniająca",
+    "zmienna celu"
+  ),
+  stringsAsFactors = FALSE
+)
+
+
+xt <- xtable(wszystkie_zmienne, 
+             caption = "Opis zmiennych w zbiorze danych iris",
+             label = "tab:iris-opis")
+
+print(xt, 
+      type = "latex",
+      caption.placement = "top",
+      include.rownames = FALSE,
+      table.placement = "H",
+      scalebox = 0.85,
+      comment = FALSE)
+```
+# Wyniki
+
+```{r}
+# Podział na dane testowe i uczące
+n <- nrow(iris)
+train_indices <- sample(1:n, size = round(2/3 * n))
+iris_train <- iris[train_indices, ]
+iris_test <- iris[-train_indices, ]
+```
+
+\begin{figure}
+\centering
+\label{fig:regresja_lin}
+\end{figure}
+
+```{r b}
+# Tworzenie klas
+iris_train$Y_setosa <- as.numeric(iris_train$Species == "setosa")
+iris_train$Y_versicolor <- as.numeric(iris_train$Species == "versicolor")
+iris_train$Y_virginica <- as.numeric(iris_train$Species == "virginica")
+
+# Regresja liniowa
+model_setosa <- lm(Y_setosa ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris_train)
+model_versicolor <- lm(Y_versicolor ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris_train)
+model_virginica <- lm(Y_virginica ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width, data = iris_train)
+
+# Prognozy
+predict_class <- function(data) {
+  p1 <- predict(model_setosa, newdata = data)
+  p2 <- predict(model_versicolor, newdata = data)
+  p3 <- predict(model_virginica, newdata = data)
+  
+  pred <- apply(cbind(p1, p2, p3), 1, function(x) c("setosa", "versicolor", "virginica")[which.max(x)])
+  return(factor(pred, levels = levels(iris$Species)))
+}
+
+pred_train <- predict_class(iris_train)
+pred_test <- predict_class(iris_test)
+```
+
+\newpage
+
+```{r, echo=FALSE}
+cat("prognozowane etykiety klas na zbiorze uczącym")
+pred_train[0:5]
+
+cat("prognozowane etykiety klas na zbbiorze testowym")
+pred_test[0:5]
+```
+
+Zastosowano *regresję liniową osobno dla każdej klasy*(\ref{fig:regresja_lin}), a następnie przypisano obserwacji klasę z największą wartością prognozowanej zmiennej.
+
+\begin{figure}
+\centering
+\label{fig:blad_klasyfikacji}
+\end{figure}
+```{r c}
+# Zbiór uczący
+cm_train <- table(Prawdziwe = iris_train$Species, Przewidziane = pred_train)
+error_train <- mean(pred_train != iris_train$Species)
+
+# Zbiór testowy
+cm_test <- table(Prawdziwe = iris_test$Species, Przewidziane = pred_test)
+error_test <- mean(pred_test != iris_test$Species)
+
+print(cm_train)
+print(paste("Blad klasyfikacji (train):", round(error_train, 3)))
+
+print(cm_test)
+print(paste("Blad klasyfikacji (test):", round(error_test, 3)))
+```
+
+Na podstawie zbioru uczącego wyznaczono estymatory, a następnie przeprowadzono klasyfikację zarówno na zbiorze uczącym, jak i testowym.(\ref{fig:blad_klasyfikacji})
+
+```{r, echo=FALSE}
+# Podstawowe statystyki
+total_train <- sum(cm_train)
+correct_train <- sum(diag(cm_train))
+errors_train <- total_train - correct_train
+
+print(paste("Calkowita liczba obserwacji:", total_train))
+print(paste("Poprawnie zaklasyfikowane:", correct_train))
+print(paste("Bledy:", errors_train))
+print(paste("Dokladnosc:", round(correct_train/total_train, 3)))
+
+# setosa
+setosa_total_train <- sum(cm_train[1,])
+setosa_correct_train <- cm_train[1,1]
+print(paste("setosa: ", setosa_correct_train, "/", setosa_total_train, 
+            " (", round(setosa_correct_train/setosa_total_train*100, 1), "%)", sep=""))
+
+# versicolor  
+versicolor_total_train <- sum(cm_train[2,])
+versicolor_correct_train <- cm_train[2,2]
+setosa_errors_train <- cm_train[2,1]  # mylone z setosa
+versicolor_errors_train <- cm_train[2,3]  # mylone z virginica
+print(paste("versicolor: ", versicolor_correct_train, "/", versicolor_total_train,
+            " (", round(versicolor_correct_train/versicolor_total_train*100, 1), "%)", sep=""))
+print(paste("  - mylone z setosa:", setosa_errors_train))
+print(paste("  - mylone z virginica:", versicolor_errors_train))
+
+# virginica
+virginica_total_train <- sum(cm_train[3,])
+virginica_correct_train <- cm_train[3,3]
+setosa_errors_train <- cm_train[3,1]  # mylone z setosa
+virginica_errors_train <- cm_train[3,2]  # mylone z versicolor
+print(paste("virginica: ", virginica_correct_train, "/", virginica_total_train,
+            " (", round(virginica_correct_train/virginica_total_train*100, 1), "%)", sep=""))
+print(paste("  - mylone z setosa:", setosa_errors_train))
+print(paste("  - mylone z versicolor:", virginica_errors_train))
+```
+
+
+```{r, echo=FALSE}
+# Siatka predykcyjna
+x_seq <- seq(min(iris$Petal.Length) - 0.5, max(iris$Petal.Length) + 0.5, length.out = 200)
+y_seq <- seq(min(iris$Petal.Width) - 0.5, max(iris$Petal.Width) + 0.5, length.out = 200)
+grid <- expand.grid(Petal.Length = x_seq, Petal.Width = y_seq)
+grid$Sepal.Length <- mean(iris$Sepal.Length)
+grid$Sepal.Width <- mean(iris$Sepal.Width)
+
+# Predykcje
+grid$setosa_prob <- predict(model_setosa, newdata = grid)
+grid$versicolor_prob <- predict(model_versicolor, newdata = grid)
+grid$virginica_prob <- predict(model_virginica, newdata = grid)
+
+```
+
+```{r, echo=FALSE}
+ggplot() +
+  geom_tile(data = grid, aes(x = Petal.Length, y = Petal.Width, fill = setosa_prob), alpha = 0.7) +
+  scale_fill_gradient2(midpoint = 0.5, low = "red", mid = "white", high = "blue") +
+  geom_point(data = iris_train, aes(x = Petal.Length, y = Petal.Width, color = Species), size = 2) +
+  labs(title = "Regresja liniowa: Setosa vs reszta", fill = "Predykcja") +
+  theme_minimal()
+```
+\begin{figure}[H]
+\centering
+\caption{Wizualizacja 1}
+\label{fig:wykres_1}
+\end{figure}
+Model nie ma problemów z rozróżnieniem Setosa od pozostałych gatunków. Maskowanie klas nie występuje.\ref{fig:wykres_1}
+
+```{r, echo=FALSE}
+ggplot() +
+  geom_tile(data = grid, aes(x = Petal.Length, y = Petal.Width, fill = versicolor_prob), alpha = 0.7) +
+  scale_fill_gradient2(midpoint = 0.5, low = "red", mid = "white", high = "green") +
+  geom_point(data = iris_train, aes(x = Petal.Length, y = Petal.Width, color = Species), size = 2) +
+  labs(title = "Regresja liniowa: Versicolor vs reszta", fill = "Predykcja") +
+  theme_minimal()
+```
+\begin{figure}[H]
+\centering
+\caption{Wizualizacja 2}
+\label{fig:wykres_2}
+\end{figure}
+
+Model ma największe problemy z rozróżnieniem Virginica od pozostałych gatunków. Najszerszy pas niepewności i najwięcej błędnie sklasyfikowanych punktów. Znaczące nakładanie się z Versicolor, nieregularna granica decyzyjna. Występuje częściowe maskowanie klas.\ref{fig:wykres_2}
+
+
+```{r, echo=FALSE}
+ggplot() +
+  geom_tile(data = grid, aes(x = Petal.Length, y = Petal.Width, fill = virginica_prob), alpha = 0.7) +
+  scale_fill_gradient2(midpoint = 0.5, low = "red", mid = "white", high = "purple") +
+  geom_point(data = iris_train, aes(x = Petal.Length, y = Petal.Width, color = Species), size = 2) +
+  labs(title = "Regresja liniowa: Virginica vs reszta", fill = "Predykcja") +
+  theme_minimal()
+```
+\begin{figure}[H]
+\centering
+\caption{Wizualizacja 3}
+\label{fig:wykres_3}
+\end{figure}
+Model ma umiarkowane problemy z rozróżnieniem, szczególnie między Versicolor a Virginica. Szerszy biały pas niepewności wskazuje na większe trudności modelu. Występuje całkowite maskowanie klas.\ref{fig:wykres_3}
+
+```{r e}
+# Funkcja do rozszerzania danych o cechy wielomianowe drugiego stopnia
+add_poly_features <- function(data) {
+  data$PL2 <- data$Petal.Length^2
+  data$PW2 <- data$Petal.Width^2
+  data$SL2 <- data$Sepal.Length^2
+  data$SW2 <- data$Sepal.Width^2
+  
+  data$PL_PW <- data$Petal.Length * data$Petal.Width
+  data$PL_SW <- data$Petal.Length * data$Sepal.Width
+  data$PL_SL <- data$Petal.Length * data$Sepal.Length
+  data$PW_SL <- data$Petal.Width * data$Sepal.Length
+  data$PW_SW <- data$Petal.Width * data$Sepal.Width
+  data$SL_SW <- data$Sepal.Length * data$Sepal.Width
+  
+  return(data)
+}
+
+iris_train <- add_poly_features(iris_train)
+iris_test <- add_poly_features(iris_test)
+```
+
+```{r eb}
+# Tworzenie klas
+iris_train$Y_setosa <- as.numeric(iris_train$Species == "setosa")
+iris_train$Y_versicolor <- as.numeric(iris_train$Species == "versicolor")
+iris_train$Y_virginica <- as.numeric(iris_train$Species == "virginica")
+
+# Regresja liniowa
+
+model_setosa <- lm(Y_setosa ~ Sepal.Length + Sepal.Width +
+                     Petal.Length + Petal.Width +
+                     PL2 + PW2 + SL2 + SW2 + PL_PW + PL_SW + PL_SL +
+                     PW_SL + PW_SW + SL_SW, data = iris_train)
+
+model_versicolor <- lm(Y_versicolor ~ Sepal.Length + Sepal.Width +
+                         Petal.Length + Petal.Width +
+                         PL2 + PW2 + SL2 + SW2 + PL_PW + PL_SW + PL_SL +
+                         PW_SL + PW_SW + SL_SW, data = iris_train)
+
+model_virginica <- lm(Y_virginica ~ Sepal.Length + Sepal.Width +
+                        Petal.Length + Petal.Width +
+                        PL2 + PW2 + SL2 + SW2 + PL_PW + PL_SW + PL_SL +
+                        PW_SL + PW_SW + SL_SW, data = iris_train)
+
+# Prognozy
+predict_class <- function(data) {
+  p1 <- predict(model_setosa, newdata = data)
+  p2 <- predict(model_versicolor, newdata = data)
+  p3 <- predict(model_virginica, newdata = data)
+  
+  pred <- apply(cbind(p1, p2, p3), 1, function(x) c("setosa", "versicolor", "virginica")[which.max(x)])
+  return(factor(pred, levels = levels(iris$Species)))
+}
+
+pred_train <- predict_class(iris_train)
+pred_test <- predict_class(iris_test)
+
+```
+
+
+\begin{figure}[H]
+\centering
+\label{fig:blad_klasyfikacjii}
+\end{figure}
+```{r ec, echo=FALSE}
+# Zbiór uczący
+cm_train <- table(Prawdziwe = iris_train$Species, Przewidziane = pred_train)
+error_train <- mean(pred_train != iris_train$Species)
+
+# Zbiór testowy
+cm_test <- table(Prawdziwe = iris_test$Species, Przewidziane = pred_test)
+error_test <- mean(pred_test != iris_test$Species)
+
+print(cm_train)
+print(paste("Blad klasyfikacji (train):", round(error_train, 3)))
+
+print(cm_test)
+print(paste("Blad klasyfikacji (test):", round(error_test, 3)))
+```
+Widać znaczącą poprawe względem pierwotnych danych(\ref{fig:blad_klasyfikacjii})
+
+```{r, echo=FALSE}
+# Podstawowe statystyki
+total_train <- sum(cm_train)
+correct_train <- sum(diag(cm_train))
+errors_train <- total_train - correct_train
+
+print(paste("Calkowita liczba obserwacji:", total_train))
+print(paste("Poprawnie zaklasyfikowane:", correct_train))
+print(paste("Bledy:", errors_train))
+print(paste("Dokladnosc:", round(correct_train/total_train, 3)))
+
+# setosa
+setosa_total_train <- sum(cm_train[1,])
+setosa_correct_train <- cm_train[1,1]
+print(paste("setosa: ", setosa_correct_train, "/", setosa_total_train, 
+            " (", round(setosa_correct_train/setosa_total_train*100, 1), "%)", sep=""))
+
+# versicolor  
+versicolor_total_train <- sum(cm_train[2,])
+versicolor_correct_train <- cm_train[2,2]
+setosa_errors_train <- cm_train[2,1]  # mylone z setosa
+versicolor_errors_train <- cm_train[2,3]  # mylone z virginica
+print(paste("versicolor: ", versicolor_correct_train, "/", versicolor_total_train,
+            " (", round(versicolor_correct_train/versicolor_total_train*100, 1), "%)", sep=""))
+print(paste("  - mylone z setosa:", setosa_errors_train))
+print(paste("  - mylone z virginica:", versicolor_errors_train))
+
+# virginica
+virginica_total_train <- sum(cm_train[3,])
+virginica_correct_train <- cm_train[3,3]
+setosa_errors_train <- cm_train[3,1]  # mylone z setosa
+virginica_errors_train <- cm_train[3,2]  # mylone z versicolor
+print(paste("virginica: ", virginica_correct_train, "/", virginica_total_train,
+            " (", round(virginica_correct_train/virginica_total_train*100, 1), "%)", sep=""))
+print(paste("  - mylone z setosa:", setosa_errors_train))
+print(paste("  - mylone z versicolor:", virginica_errors_train))
+```
+
+
+```{r, echo=FALSE}
+# Siatka predykcyjna
+x_seq <- seq(min(iris$Petal.Length) - 0.5, max(iris$Petal.Length) + 0.5, length.out = 200)
+y_seq <- seq(min(iris$Petal.Width) - 0.5, max(iris$Petal.Width) + 0.5, length.out = 200)
+grid <- add_poly_features(grid)
+grid$Sepal.Length <- mean(iris$Sepal.Length)
+grid$Sepal.Width <- mean(iris$Sepal.Width)
+
+# Predykcje
+grid$setosa_prob <- predict(model_setosa, newdata = grid)
+grid$versicolor_prob <- predict(model_versicolor, newdata = grid)
+grid$virginica_prob <- predict(model_virginica, newdata = grid)
+
+```
+
+```{r, echo=FALSE}
+ggplot() +
+  geom_tile(data = grid, aes(x = Petal.Length, y = Petal.Width, fill = setosa_prob), alpha = 0.7) +
+  scale_fill_gradient2(midpoint = 0.5, low = "red", mid = "white", high = "blue") +
+  geom_point(data = iris_train, aes(x = Petal.Length, y = Petal.Width, color = Species), size = 2) +
+  labs(title = "Regresja liniowa: Setosa vs reszta", fill = "Predykcja") +
+  theme_minimal()
+```
+\begin{figure}[H]
+\centering
+\caption{Wizualizacja 4}
+\label{fig:wykres_4}
+\end{figure}
+
+Model nie ma problemów z rozróżnieniem Setosa od pozostałych gatunków. Maskowanie klas nie występuje.\ref{fig:wykres_4}
+
+```{r, echo=FALSE}
+ggplot() +
+  geom_tile(data = grid, aes(x = Petal.Length, y = Petal.Width, fill = versicolor_prob), alpha = 0.7) +
+  scale_fill_gradient2(midpoint = 0.5, low = "red", mid = "white", high = "green") +
+  geom_point(data = iris_train, aes(x = Petal.Length, y = Petal.Width, color = Species), size = 2) +
+  labs(title = "Regresja liniowa: Versicolor vs reszta", fill = "Predykcja") +
+  theme_minimal()
+```
+\begin{figure}[H]
+\centering
+\caption{Wizualizacja 5}
+\label{fig:wykres_5}
+\end{figure}
+Model ma większe problemy z rozróżnieniem Virginica od pozostałych gatunków. Najszerszy pas niepewności. Znaczące nakładanie się z Versicolor, nieregularna granica decyzyjn jednak jest zdecydowana porawa względem danych pierwotnych. Występuje częściowe maskowanie klas.\ref{fig:wykres5}
+
+
+
+
+```{r, echo=FALSE}
+ggplot() +
+  geom_tile(data = grid, aes(x = Petal.Length, y = Petal.Width, fill = virginica_prob), alpha = 0.7) +
+  scale_fill_gradient2(midpoint = 0.5, low = "red", mid = "white", high = "purple") +
+  geom_point(data = iris_train, aes(x = Petal.Length, y = Petal.Width, color = Species), size = 2) +
+  labs(title = "Regresja liniowa: Virginica vs reszta", fill = "Predykcja") +
+  theme_minimal()
+```
+\begin{figure}[H]
+\centering
+\caption{Wizualizacja 6}
+\label{fig:wykres_6}
+\end{figure}
+
+Model ma umiarkowane problemy z rozróżnieniem, szczególnie między Versicolor a Virginica, jednak jest znaczna poprawa w porównaniu z danymi pierwotnymi. Maskowanie klas nie występuje.\ref{fig:wykres_6}
+
+# Podsumowanie
+1. *Model regresji liniowej* zastosowany jako klasyfikator wieloklasowy okazał się częściowo skuteczny. Klasa setosa została rozpoznana z bardzo dużą dokładnością, co sugeruje jej dobrą separowalność w przestrzeni cech.\ref{fig:wykres_1}
+
+2. Dla klas versicolor oraz virginica zauważono częściowe *nakładanie się granic decyzyjnych*, co prowadziło do błędów klasyfikacji. Potwierdza to występowanie zjawiska *maskowania klas*, o którym była mowa na wykładzie.\ref{fig:wykres_2}.\ref{fig:wykres_3}
+
+3. Wprowadzenie *rozszerzonej przestrzeni cech* poprzez składniki wielomianowe drugiego stopnia przyczyniło się do poprawy jakości klasyfikacji, szczególnie dla klas trudniejszych do rozróżnienia. Obserwuje się zmniejszenie błędów klasyfikacji oraz lepsze dopasowanie modelu.\ref{fig:wykres_4}.\ref{fig:wykres_5}.\ref{fig:wykres_6}

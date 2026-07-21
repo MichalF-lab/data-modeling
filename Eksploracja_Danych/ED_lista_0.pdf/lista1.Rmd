@@ -1,0 +1,466 @@
+---
+title: "Raport 1"
+author: "Michał Frąckowiak 275951 Matusz Goszczyński 275959"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    toc: true
+    fig_caption: true
+    fig_width: 5
+    fig_height: 4
+    number_sections: true
+  html_document:
+    toc: true
+    df_print: paged
+header-includes:
+- \usepackage[OT4]{polski}
+- \usepackage[utf8]{inputenc}
+- \usepackage{graphicx}
+- \usepackage{float}
+subtitle: Eksploracja danych
+fontsize: 12pt
+---
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(fig.pos = "H", out.extra = "", fig.align = "center")
+```
+
+\newpage
+
+# Krótki opis zagadnienia
+
+Naszym celem jest eksploracja danych dotyczących klientów firmy telekomunikacyjnej oraz analiza czynników wpływających na ich rezygnację z usług. W szczególności:
+
+- Jakie cechy klientów wpływają na decyzję o rezygnacji?
+- Jakie są główne różnice między klientami, którzy pozostają, a tymi, którzy odchodzą?
+- Czy można przewidzieć odejście klienta na podstawie dostępnych danych?
+
+# Opis eksperymentów/analiz
+
+- *Dane*: Zbiór *WA_Fn-UseC_-Telco-Customer-Churn.csv* (źródło: [Kaggle](https://www.kaggle.com/datasets/blastchar/telco-customer-churn)).
+- *Eksperymenty*:
+  - Wczytanie i wstępna eksploracja danych.
+  - Analiza opisowa zmiennych.
+  - Podział klientów na grupy (Churn = "Yes" vs Churn = "No").
+  - Wizualizacja rozkładu cech i zależności między zmiennymi.
+- *Narzędzia*:
+  - Wykresy (histogramy, pudełkowe, słupkowe, wykresy rozrzutu).
+  - Wskaźniki statystyczne (średnia, mediana, odchylenie standardowe).
+
+
+```{r, include=FALSE}
+# Biblioteki
+library(knitr)
+library(ggplot2)
+library(xtable)
+library(gridExtra)
+```
+
+\newpage
+
+# Opis zmiennych
+
+```{r}
+data <- read.csv("WA_Fn-UseC_-Telco-Customer-Churn.csv",
+                 sep = ",", header = TRUE, stringsAsFactors = TRUE)
+```
+
+```{r Tabelka, echo=FALSE, results='asis'}
+nazwy_zmiennych <- c("customerID", "gender", "SeniorCitizen", "Partner", "Dependents", 
+                    "tenure", "PhoneService", "MultipleLines", "InternetService", 
+                    "OnlineSecurity", "OnlineBackup", "DeviceProtection", "TechSupport", 
+                    "StreamingTV", "StreamingMovies", "Contract", "PaperlessBilling", 
+                    "PaymentMethod", "MonthlyCharges", "TotalCharges", "Churn")
+
+opisy_zmiennych <- c("Unikalny identyfikator klienta", 
+                    "Płeć klienta (Male, Female)", 
+                    "Czy klient jest seniorem (0 = Nie, 1 = Tak)", 
+                    "Czy klient ma partnera (Yes, No)", 
+                    "Czy klient ma osoby na utrzymaniu (Yes, No)", 
+                    "Liczba miesięcy bycia klientem", 
+                    "Czy klient ma usługę telefoniczną (Yes, No)", 
+                    "Czy klient ma wiele linii telefonicznych", 
+                    "Rodzaj internetu (DSL, Fiber optic, No)", 
+                    "Czy klient ma usługę zabezpieczeń online", 
+                    "Czy klient ma usługę backupu online", 
+                    "Czy klient ma usługę ochrony urządzeń", 
+                    "Czy klient ma wsparcie techniczne", 
+                    "Czy klient ma usługę TV streamingowego", 
+                    "Czy klient ma usługę filmów streamingowych", 
+                    "Typ umowy (Month-to-month, One year, Two year)", 
+                    "Czy klient korzysta z e-faktury (Yes, No)", 
+                    "Metoda płatności", 
+                    "Miesięczna opłata (w dolarach)", 
+                    "Łączne opłaty (w dolarach)", 
+                    "Czy klient odszedł (Yes, No)")
+
+typy_zmiennych <- c("character", "factor", "numeric", "factor", "factor", 
+                  "numeric", "factor", "factor", "factor", "factor", 
+                  "factor", "factor", "factor", "factor", "factor", 
+                  "factor", "factor", "factor", "numeric", "numeric", "factor")
+
+data_matrix <- cbind(1:21, nazwy_zmiennych, opisy_zmiennych, typy_zmiennych)
+colnames(data_matrix) <- c("Lp", "Nazwa_zmiennej", "Opis_zmiennej", "Typ")
+
+
+tab <- xtable(data_matrix, 
+              caption = "Opis zmiennych w zbiorze Telco Customer Churn", 
+              label = "tab:Dane",
+              align = c("c", "c", "l", "p{7cm}", "l"))
+
+print(tab, type = "latex", table.placement = "H", comment=FALSE)
+```
+
+Jak widać w Tabeli(\ref{tab:Dane}), zbiór zawiera różne typy zmiennych opisujących zachowania klientów. Nasz próbka zawiera
+
+```{r}
+cat(dim(data)[1]," obserwacji i ", dim(data)[2]," zmiennych.")
+```
+
+\newpage
+
+Usuwamy klucz główny, bo nie przyda się w analizie danych
+
+```{r}
+data$customerID <- NULL
+```
+
+Sprawdzamy, ile wartości brakuje w każdej kolumnie zbioru danych:
+
+```{r, eval=TRUE}
+colSums(is.na(data))
+```
+\begin{figure}
+\centering
+\caption{Brakujące wartości w danych}
+\label{fig:brakujace_wartosci}
+\end{figure}
+
+Widzimy, że braki występują w zmiennej *TotalCharges*(\ref{fig:brakujace_wartosci})
+
+```{r}
+data[is.na(data$TotalCharges), "tenure"]
+```
+
+\begin{figure}
+\centering
+\caption{Brakujące wartości w danych}
+\label{fig:brakujace_wartosci_next}
+\end{figure}
+
+możemy stwierdzić, że brak wartości w *TotalCharges*(\ref{fig:brakujace_wartosci_next}) dotyczy klientów, którzy dopiero rozpoczęli subskrypcję (mają `tenure` równy 0).
+
+\newpage
+
+# Wyniki
+
+Dla zmiennych takich jak *gender*, *SeniorCitizen*, *Partner*, *Dependents*, *PhoneService*, *InternetService*, *Contract*, *PaymentMethod* czy *Churn* warto przedstawić ich rozkład.
+
+```{r, echo=TRUE}
+table(data$gender)
+table(data$SeniorCitizen)
+table(data$Partner)
+table(data$Churn)
+
+# Procentowy udział
+prop.table(table(data$Churn)) * 100
+```
+\begin{figure}
+\centering
+\caption{rozklady zmiennych}
+\label{fig:rozklad}
+\end{figure}
+
+\newpage
+
+Wykreślimy wykresy słupkowe dla zmiennych *InternetService* oraz *Contract*.
+
+```{r, echo=FALSE}
+
+ggplot(data, aes(x = InternetService)) +
+  geom_bar(fill = "salmon") +
+  ggtitle("Rozkład zmiennej 'InternetService'") +
+  xlab("Rodzaj internetu") + ylab("Liczba klientów")
+```
+\begin{figure}
+\centering
+\caption{"Rodzaj internetu"}
+\label{fig:"rodzaj_internetu}
+\end{figure}
+
+
+\newpage
+
+
+```{r, echo=FALSE}
+ggplot(data, aes(x = Contract)) +
+  geom_bar(fill = "lightgreen") +
+  ggtitle("Rozkład zmiennej 'Contract'") +
+  xlab("Rodzaj umowy") + ylab("Liczba klientów")
+
+```
+\begin{figure}
+\centering
+\caption{"Rodzaj umowy"}
+\label{fig:"rodzaj_umowy"}
+\end{figure}
+
+\newpage
+
+Dla zmiennych takich jak *tenure*, *MonthlyCharges* oraz *TotalCharges* wyznaczymy:
+
+- Liczebność obserwacji (n)
+- Średnią (mean)
+- Medianę
+- Odchylenie standardowe (std)
+- Wartości minimalne i maksymalne
+- Kwartyle (Q1, Q3)
+- Odchylenie standardowe
+
+```{r, echo=TRUE}
+summary(data$tenure)
+summary(data$MonthlyCharges)
+summary(data$TotalCharges)
+cat("Odchylenie standardowe dla tenure:", sd(data$tenure, na.rm = TRUE), "\n")
+cat("Odchylenie standardowe dla MonthlyCharges:", sd(data$MonthlyCharges, na.rm = TRUE), "\n")
+cat("Odchylenie standardowe dla TotalCharges:", sd(data$TotalCharges, na.rm = TRUE), "\n")
+```
+\begin{figure}
+\centering
+\caption{Parmetry danych}
+\label{fig:parmetry_danych}
+\end{figure}
+
+\newpage
+
+Przedstawimy histogramy i wykresy pudełkowe dla zmiennych *tenure*, *MonthlyCharges* i *TotalCharges*.
+
+```{r, echo=FALSE}
+par(mfrow = c(2,3))
+hist(data$tenure, main="Histogram tenure", xlab="Liczba miesięcy", col="lightblue")
+hist(data$MonthlyCharges, main="Histogram MonthlyCharges", xlab="Miesięczna opłata", col="lightgreen")
+hist(data$TotalCharges, main="Histogram TotalCharges", xlab="Łączne opłaty", col="lightcoral")
+boxplot(data$tenure, main="Boxplot tenure", col="lightblue")
+boxplot(data$MonthlyCharges, main="Boxplot MonthlyCharges", col="lightgreen")
+boxplot(data$TotalCharges, main="Boxplot TotalCharges", col="lightcoral")
+```
+
+\begin{figure}
+\centering
+\caption{Wykresy pudełkowe zmiennych numerycznych}
+\label{fig:boxplot}
+\end{figure}
+
+Zwróćmy uwage na:
+
+*Większość klientów ma bardzo krótki czas trwania subskrypcji$(\ref{fig:boxplot})$ (poniżej 10 miesięcy)
+*Opłaty skupiają się w 2 miejscach$(\ref{fig:boxplot})$ co sugeruje zróżnicowaną oferte usług
+
+
+
+\newpage
+
+```{r, echo=FALSE}
+ggplot(data, aes(x = tenure, y = MonthlyCharges)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  facet_wrap(~ InternetService) +
+  ggtitle("Rozrzut: tenure vs MonthlyCharges (podział wg InternetService)") +
+  xlab("Liczba miesięcy") +
+  ylab("Miesięczna opłata")
+```
+\begin{figure}
+\centering
+\caption{Zalezności między tenure a MonthlyCharges podziałem wg InternetService}
+\label{fig:anliza_danych1}
+\end{figure}
+
+
+Zuważmy, że istniej duża korelacja pomiędzy *InternetService* a *MonthlyCharges*(\ref{fig:anliza_danych1}).
+
+```{r, echo=FALSE}
+ggplot(data, aes(x = tenure, y = TotalCharges)) +
+  geom_point(alpha = 0.5, color = "darkgreen") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  facet_wrap(~ InternetService) +
+  ggtitle("Rozrzut: tenure vs TotalCharges") +
+  xlab("Liczba miesięcy") + ylab("Łączne opłaty")
+```
+
+\begin{figure}
+\centering
+\caption{Zalezności między tenure a TotalCharges podziałem wg InternetService}
+\label{fig:anliza_danych2}
+\end{figure}
+
+Istotnie *tenure* ma wpływ na *TotalCharges*(\ref{fig:anliza_danych2}) co nie jest zaksoczeniem.
+
+
+```{r, echo=FALSE}
+ggplot(data, aes(x = MonthlyCharges, y = TotalCharges)) +
+  geom_point(alpha = 0.5, color = "purple") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  facet_wrap(~ InternetService) +
+  ggtitle("Rozrzut: MonthlyCharges vs TotalCharges") +
+  xlab("Miesięczna opłata") + ylab("Łączne opłaty")
+```
+\begin{figure}
+\centering
+\caption{Zalezności między TotalCharges a MonthlyCharges podziałem wg InternetService}
+\label{fig:anliza_danych3}
+\end{figure}
+
+Podobnie *MonthlyCharges* ma wpływ na *TotalCharges*(\ref{fig:anliza_danych3}).
+
+Dodatkowo, wyznaczymy współczynniki korelacji między tymi zmiennymi:
+
+```{r, echo=FALSE}
+cor_tenure_monthly <- cor(data$tenure, data$MonthlyCharges, use = "complete.obs")
+cor_tenure_total <- cor(data$tenure, data$TotalCharges, use = "complete.obs")
+cor_monthly_total <- cor(data$MonthlyCharges, data$TotalCharges, use = "complete.obs")
+
+cat("Korelacja między tenure a MonthlyCharges:", cor_tenure_monthly, "\n")
+cat("Korelacja między tenure a TotalCharges:", cor_tenure_total, "\n")
+cat("Korelacja między MonthlyCharges a TotalCharges:", cor_monthly_total, "\n")
+```
+
+Warto jednak zaznaczyć, że gdy podzielimy dane *MonthlyCharges* ze względu na *InternetService* współczynniki korelacji się zmienia
+
+```{r echo=FALSE}
+cor_by_internet_lambda <- sapply(split(data, data$InternetService),
+                                   function(df) cor(df$MonthlyCharges, df$TotalCharges, use = "complete.obs"))
+print(cor_by_internet_lambda)
+```
+\newpage
+
+Przeanalizujmy teraz zmienną *Churn* (czy klient odszedł z firmy – Tak/Nie), aby lepiej zrozumieć, jakie czynniki mogą wpływać na decyzję o rezygnacji z usług.
+
+
+
+```{r, echo=FALSE}
+
+ggplot(data, aes(x = InternetService)) +
+  geom_bar(fill = "salmon") +
+  facet_wrap(~ Churn) +
+  ggtitle("InternetService") +
+  xlab("Rodzaj internetu") + ylab("Liczba klientów")
+```
+\begin{figure}
+\centering
+\caption{Rodzaj internetu z podziałem na Churn}
+\label{fig:rodzaj_internetuchurn}
+\end{figure}
+
+Zauważamy że najwięcej osób odchodzi mających umowe na swiatłowód(\ref{fig:rodzaj_internetuchurn})
+
+\newpage
+
+```{r, echo=FALSE}
+p1 <- ggplot(data, aes(x = OnlineSecurity)) +
+  geom_bar(fill = "darkblue") +
+  facet_wrap(~ Churn) +
+  ylab("") +
+  xlab("") +
+  ggtitle("OnlineSecurity") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    plot.title = element_text(hjust = 0.5, size = 12),
+    strip.background = element_rect(fill = "lightgray", color = "black"),
+    strip.text = element_text(face = "bold")
+  )
+
+
+p2 <- ggplot(data, aes(x = DeviceProtection)) +
+  geom_bar(fill = "grey") +
+  facet_wrap(~ Churn) +
+  ylab("") +
+  xlab("") +
+  ggtitle("DeviceProtection") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    plot.title = element_text(hjust = 0.5, size = 12),
+    strip.background = element_rect(fill = "lightgray", color = "black"),
+    strip.text = element_text(face = "bold")
+  )
+
+p3 <- ggplot(data, aes(x = Contract)) +
+  geom_bar(fill = "pink") +
+  facet_wrap(~ Churn) +
+  ylab("") +
+  xlab("") +
+  ggtitle("Contract") + 
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    plot.title = element_text(hjust = 0.5, size = 12),
+    strip.background = element_rect(fill = "lightgray", color = "black"),
+    strip.text = element_text(face = "bold")
+  )
+
+p4 <- ggplot(data, aes(x = PaperlessBilling, fill = Chrun)) +
+  geom_bar(fill = "brown") +
+  facet_wrap(~ InternetService) +
+  ylab("") +
+  xlab("") +
+  ggtitle("PaperlessBilling")
+
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+```
+
+\begin{figure}
+\centering
+\caption{"Rodzaj umowy"}
+\label{fig:rodzaj_umowy_chrun}
+\end{figure}
+
+
+Zauważamy że najwięcej osób odchodzi mających umowy miesięczne(\ref{fig:rodzaj_umowy_chrun}).
+OnlnieSecurity jest mocno skorelowana z DeviceProtection(\ref{fig:rodzaj_umowy_chrun})(oraz kilkoma innymi danymi jak *StreamingTV*).
+Zauważalnie więcej osób odeszło posługujących sie PaperlessBilling (oraz *Electronic check*) mających światłowód(\ref{fig:rodzaj_umowy_chrun}).
+
+
+\newpage
+
+Należy się zatem zastanowić jakie są zależności między *Churn*, *InternetService* oraz *Contract*
+
+```{r, echo=FALSE}
+ggplot(data, aes(x = Contract, fill = Churn)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~ InternetService) +
+  ggtitle("Contract z podziałem na Churn i InternetService") +
+  xlab("Rodzaj umowy") + 
+  ylab("Liczba klientów") +
+  scale_fill_manual(values = c("No" = "blue", "Yes" = "red")) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+    plot.title = element_text(hjust = 0.5, size = 12),
+    strip.background = element_rect(fill = "lightgray", color = "black"),
+    strip.text = element_text(face = "bold")
+  )
+
+```
+
+\begin{figure}
+\centering
+\caption{"Rozkład zmiennej Contract z podziałem na Churn i InternetService"}
+\label{fig:chrunn}
+\end{figure}
+
+Widzimy że bardzo dużo osób odeszło z umów o światłowód gdy umowa była miesięczna(\ref{fig:chrunn}) Na podstwie tych danych można odrróżnić klientów dwuch grup.
+
+\newpage
+
+# Podsumowanie
+
+Lista najważniejszych wniosków, jakie udało się wysnuć na podstawie przeprowadzonych analiz/eksperymentów:
+
+* Seniorzy stanowią mniejszość klientów$(\ref{fig:rozklad})$
+* Wskaźnik rezygnacji wynosi około 26%$(\ref{fig:rozklad})$
+* Występują dwa główne segmenty cenowe$(\ref{fig:boxplot})$
+* Posiadani partnera lub osoby na utrzymaniu nie wpływa na rezygnacje
+* Istnieje szansa że firma wprowdziła cos w rodzaju pakietu promocyjnego na piewrszy miesiąc związaną z światłowodem co zniekształciłca dane lub te dane mogą sugerować, że wile osób miało problem światłowodem w ciągu kiklu pierwszych miesięcy$(\ref{fig:chrunn})$
+
+Rozważmy jescze kroki jakie firma powinna podjąć by przeciwdziałać odchodzeniu klientów
+
+* Zachęić nowych klientów na dłuższe umowy
+* Skupić się na ewentulach problemach ze światłowodem
