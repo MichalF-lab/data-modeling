@@ -1,0 +1,6 @@
+﻿.Rhistory
+.RData
+*.aux
+*.log
+*.synctex.gz
+figure/
