@@ -1,0 +1,36 @@
+\documentclass{article}
+
+\begin{document}
+<<losowanie>>=
+library(quantreg)
+set.seed(42)
+
+n<-100
+x <- (1:n)/10
+
+e1 <- 1+2*x+(1/2+x)*rnorm(n)
+e2 <- 5 * (rexp(n, 1) - log(2))
+e3 <- rt(n, 2)
+
+y1 <- 1+2*x + e1
+y2 <- 1+2*x + e2
+y3 <- 1+2*x + e3
+@
+
+<<losowanie2>>=
+
+model1 <- lm(y1 ~ x)
+model2 <- lm(y2 ~ x)
+model3 <- lm(y3 ~ x)
+plot(x,y1)
+abline(coef(model1))
+
+
+tau <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+
+library(cqrReg)
+model.mediana <- rq(y1~x, tau=0.5)
+abline(coef(model.mediana), col='blue')
+
+@
+\end{document}

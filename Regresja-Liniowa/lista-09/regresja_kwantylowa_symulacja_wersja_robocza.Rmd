@@ -1,0 +1,40 @@
+---
+title: "ostatnie"
+output: html_document
+date: "2026-06-18"
+---
+
+```{r setup, include=FALSE}
+library(quantreg)
+set.seed(42)
+
+n<-100
+x <- (1:n)/10
+
+e1 <- 1+2*x+(1/2+x)*rnorm(n)
+e2 <- 5 * (rexp(n, 1) - log(2))
+e3 <- rt(n, 2)
+
+y1 <- 1+2*x + e1
+y2 <- 1+2*x + e2
+y3 <- 1+2*x + e3
+
+plot(x,y1)
+```
+
+
+```{r}
+lm(y1 ~ x)
+lm(y2 ~ x)
+lm(y3 ~ x)
+
+
+```
+
+
+```{r}
+tau <- c(0.05, 0.25, 0.5, 0.75, 0.95)
+
+library(cqrReg)
+
+```
