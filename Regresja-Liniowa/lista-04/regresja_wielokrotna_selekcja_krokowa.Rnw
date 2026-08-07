@@ -1,0 +1,108 @@
+\documentclass[12pt, a4paper]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% dodatkowe pakiety LaTeX'a
+\usepackage[OT4]{polski}
+\usepackage[utf8]{inputenc}
+\usepackage[top=2.5cm, bottom=2.5cm, left=2cm, right=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{bbm}
+\usepackage{amssymb}
+\usepackage[colorlinks=true, linkcolor=blue]{hyperref}
+\usepackage{parskip}
+\usepackage{caption}
+\captionsetup[table]{skip=8pt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ustawienia globalne
+
+<<ustawienia_globalne, echo=FALSE, warning=FALSE, message=FALSE>>=
+library(knitr)
+library(latex2exp)
+library(xtable)
+library(ggplot2)
+opts_chunk$set(
+  fig.path='figure/', 
+  fig.align='center', 
+  fig.pos='H', 
+  out.width='100%',     # To rozciągnie grafikę do szerokości tekstu w LaTeX
+  fig.width=7,          # To zwiększa "rozdzielczość" bazową wykresu (opcjonalne)
+  fig.asp=0.7           # Ustala proporcję wysokości do szerokości (np. 0.7)
+)
+library(readxl)
+library(corrplot)
+library(car)
+dane<-read_excel("zmodyfikkowanedane.xlsx")
+@
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Sprawozdanie 3}
+\author{Michał Frąckowiak\\ 275951}
+\maketitle
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+
+
+
+<<nazwa1, echo=FALSE>>=
+dane<-read_excel("zmodyfikkowanedane.xlsx")
+dane <- dane[,-c(8,9,10)]
+model.min<-lm(Y~1, data=dane)
+model.max<-lm(Y~., data=dane)
+
+model <- step(object = model.max, scope = list(lower=model.min, upper = model.max), direcion="backward", k=2)
+@
+
+<<nazwa2>>=
+summary(model)
+@
+1.1 Estimate Std
+1.2. F-statistic: p-value: < 2.2e-16
+1.3 z czwartej kolumny  wszystkie zmienne istotne test t
+
+<<nazwa22>>=
+confint(model, level=0.95)
+@
+przedziały ufności nie zawierja zera
+Adjusted R-squared: 0.9995 SUPER model dopasowuje sie do danych
+
+<<nazwa3>>=
+plot(model)
+@
+
+Wykres Q-Q wygląda w miare dobrze pojawiają się odstępstwa na ogonach 
+
+Residuals vs Fitted wygląda dobrze linia jest stosunkowo prosta w okolicach zera
+
+<<nazwa4>>=
+plot(dane$X1, residuals(model))
+@
+
+<<nazwa5>>=
+plot(dane$X2, residuals(model))
+@
+
+<<nazwa6>>=
+plot(dane$X3, residuals(model))
+@
+
+<<nazwa7>>=
+plot(dane$X4, residuals(model))
+@
+
+
+<<nazwa9>>=
+plot(dane$X6, residuals(model))
+@
+
+<<nazwa41>>=
+plot(dane$X7, residuals(model))
+@
+
+Wykresy reszt wyglądaja ok tzn błędy wyglądaja na losowe
+
+\end{document}
