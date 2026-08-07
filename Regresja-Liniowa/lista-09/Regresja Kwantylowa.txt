@@ -1,0 +1,22 @@
+library(quantreg)
+x<-1:100/10
+y<-1+2*x+(1/2+x)*rnorm(100)
+y<-1+2*x+5*rexp(100)-5*log(2)
+y<-1+2*x+5*rt(100,2)
+model<-lm(y~x)
+model.mediana<-rq(y~x,tau=0.5)
+coef(model)
+coef(model.mediana)
+plot(x,y,pch=16,ylim=c(-20,50))
+abline(coef(model),col='red',lwd=2)
+abline(coef(model.mediana),col='blue',lwd=2)
+abline(1,2,col='green',lwd=2)
+
+library(cqrReg)
+tau<-c(0.05,0.25,0.50,0.75,0.95)
+X<-matrix(x,ncol=1,nrow=100)
+model.równoległy<-cqr.fit(X,y,tau=tau,method="mm")
+plot(x,y,pch=16,ylim=c(-20,50))
+for (i in 1:5){
+  abline(model.równoległy$b[i],
+         model.równoległy$beta,col=rainbow(5)[i],lwd=2)}
