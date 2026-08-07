@@ -1,0 +1,51 @@
+```{r}
+levmar_linear <- function(x, y, beta0, lambda0=1e-3, v=10, 
+                          tol=1e-4, max_iter=100) {
+  n <- length(y)
+  p <- length(beta0)
+  beta <- beta0
+  lambda <- lambda0
+  history <- list(beta0)
+  
+  rss <- function(b) sum((y - x %*% b)^2)
+  
+  r0 <- y - x %*% beta
+  sigma2_hist <- sum(r0^2)/n
+  loglik_hist <- -n/2*log(2*pi*sigma2_hist) - sum(r0^2)/(2*sigma2_hist)
+  lambda_hist <- lambda
+  
+  J <- x      
+  JtJ <- t(J) %*% J             
+  
+  for (s in 1:max_iter) {
+    r <- y - x %*% beta
+    A <- JtJ + lambda * diag(p)
+    delta <- solve(A) %*% (t(J) %*% r)
+    beta_new <- beta + delta
+    
+    if (rss(beta_new) < rss(beta)) {              
+      r_new      <- y - x %*% beta_new
+      sigma2_new <- sum(r_new^2)/n
+      ll_new     <- -n/2*log(2*pi*sigma2_new) - sum(r_new^2)/(2*sigma2_new)
+      
+      history[[length(history)+1]] <- beta_new
+      sigma2_hist <- c(sigma2_hist, sigma2_new)
+      loglik_hist <- c(loglik_hist, ll_new)
+      lambda      <- lambda / v
+      lambda_hist <- c(lambda_hist, lambda)
+      
+      if (sqrt(sum((beta_new - beta)^2)) <= tol) {
+        beta <- beta_new
+        break
+      }
+      beta <- beta_new
+    } else {                                      
+      lambda      <- lambda * v
+      lambda_hist <- c(lambda_hist, lambda)
+    }
+  }
+  
+  list(beta=beta, history=history, sigma2=sigma2_hist,
+       loglik=loglik_hist, lambda=lambda_hist, iter=length(history)-1)
+}
+```

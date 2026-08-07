@@ -1,0 +1,53 @@
+```{r}
+n <- 10
+x <- (1:n)/2
+beta_true <- c(10, 3, 2)
+sigma_true <- 1/2
+
+g <- function(x, beta) beta[1]*x/(beta[2]+x) + beta[3]
+
+y <- g(x, beta_true) + rnorm(n, 0, sigma_true)
+
+grad_g <- function(x, beta) {
+  cbind(
+    x/(beta[2]+x),
+    -beta[1]*x/(beta[2]+x)^2,
+    rep(1, length(x))
+  )
+}
+
+levmar_linear <- function(x, y, beta0, lambda0=1e-3, v=10, 
+                          tol=1e-4, max_iter=1000) {
+  n <- length(y)
+  p <- length(beta0)
+  beta <- beta0
+  lambda <- lambda0
+
+  
+  S <- function(b) sum((y - g(x, beta))^2)
+  for (s in 1:max_iter) {
+    
+  G <- grad_g(x, beta)
+    
+  r <- y - g(x, beta)
+  A <- t(G) %*% G + lambda * diag(p)
+  beta_new <- beta + solve(A, t(G) %*% r)
+    
+  if (sqrt(sum((beta_new - beta)^2)) <= tol) {
+      beta <- beta_new
+      break
+    }
+    
+    if(S(beta_new) < S(beta)){
+      beta <- beta_new
+      lambda <- lambda / v
+    }
+    else{
+      lambda <- lambda * v
+    }
+  }
+  return(beta)
+}
+levmar_linear(x, y, c(8, 2, 1))
+
+```
