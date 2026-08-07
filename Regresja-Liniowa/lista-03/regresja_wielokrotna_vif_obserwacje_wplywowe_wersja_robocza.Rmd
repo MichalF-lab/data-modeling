@@ -1,0 +1,132 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-03-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r cars}
+dane<-read_excel("regwiel.xlsx")
+pairs(dane)
+```
+```{r}
+plot(dane$X6, dane$X9)
+```
+```{r}
+plot(dane$X2, dane$X8)
+```
+
+```{r}
+plot(dane$X2, dane$X10)
+```
+
+```{r pressure, echo=FALSE}
+macierz.korelacji <- round(cor(dane), 3)
+View(macierz.korelacji)
+```
+
+```{r}
+model <- lm(y ~., data = dane)
+summary(model)
+```
+
+
+```{r}
+model$coefficients
+```
+
+
+
+
+```{r}
+library(corrplot)
+corrplot(macierz.korelacji, method = "color",  addCoef.col='black',number.cex=0.6)
+```
+
+
+```{r}
+info$r.squared
+info$adj.r.squared
+```
+
+
+```{r}
+library(car)
+vif.val<-vif(model)
+
+while(any(vif.val>10)){
+  zmienna.do.usunięcia<-names(which.max(vif.val))
+  formuła<-formula(model)
+  formuła.nowa<-update(formuła,paste(". ~ . -",zmienna.do.usunięcia))
+  model<-lm(formuła.nowa,dane)
+  vif.val<-vif(model)
+  print(vif.val)
+}
+```
+
+
+```{r}
+n<-nrow(dane)
+p<-length(coef(model))
+lev<-hatvalues(model)
+cook<-cooks.distance(model)
+rstud<-rstudent(model)
+
+próg.lev<-2*p/n
+próg.cook<-4/(n-p)
+próg.rstud<-2
+
+indeks.lev<-which(lev>próg.lev)
+indeks.cook<-which(cook>próg.cook)
+indeks.rstud<-which(abs(rstud)>próg.rstud)
+```
+
+```{r}
+plot(cook,pch=19,col='blue',ylim=c(0,0.06),xlim=c(0,210))
+abline(próg.cook,0)
+text(x=indeks.cook,y=cook[indeks.cook]*1.1,labels=indeks.cook)
+```
+
+```{r}
+plot(lev,pch=19,col='blue',ylim=c(0,0.15),xlim=c(0,210))
+abline(próg.lev,0)
+text(x=indeks.lev,y=lev[indeks.lev]*1.1,labels=indeks.lev)
+```
+
+```{r}
+plot(rstud,pch=19,col='blue',ylim=c(-3,3),xlim=c(0,210))
+abline(próg.rstud,0)
+abline(-próg.rstud,0)
+text(x=indeks.rstud,y=rstud[indeks.rstud]*1.1,labels=indeks.rstud)
+```
+
+
+```{r}
+indeksy.do.usunięcia<-sort(unique(c(indeks.cook,indeks.rstud,indeks.lev)))
+
+danee<-dane[-indeksy.do.usunięcia,]
+
+```
+
+
+```{r}
+
+model<-lm(formuła.nowa,danee)
+
+model$coefficients
+```
+
+
+```{r}
+info$r.squared
+info$adj.r.squared
+```
+
+```{r}
+pf(info$fstatistic,info$df[1],info$df[2],lower.tail=F)[1]
+```
