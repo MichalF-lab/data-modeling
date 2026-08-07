@@ -1,0 +1,393 @@
+\documentclass[12pt, a4paper]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% dodatkowe pakiety LaTeX'a
+\usepackage[OT4]{polski}
+\usepackage[utf8]{inputenc}
+\usepackage[top=2.5cm, bottom=2.5cm, left=2cm, right=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{bbm}
+\usepackage{amssymb}
+\usepackage[colorlinks=true, linkcolor=blue]{hyperref}
+\usepackage{parskip}
+\usepackage{caption}
+\captionsetup[table]{skip=8pt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ustawienia globalne
+<<ustawienia_globalne, echo=FALSE, warning=FALSE, message=FALSE>>=
+library(knitr)
+library(latex2exp)
+library(xtable)
+library(ggplot2)
+library(readxl)
+opts_chunk$set(fig.path='figure/', fig.align='center', fig.pos='H',
+               fig.width=5, fig.height=3.5, echo=FALSE, 
+               warning=FALSE, message=FALSE)
+@
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Zajęcia laboratoryjne 3 -- Regresja liniowa}
+\author{Imię Nazwisko \\ album 123456}
+\maketitle
+\tableofcontents
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Wczytanie danych}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+<<wczytanie_danych, echo=TRUE>>=
+dane <- read_excel("lab3.xlsx")
+x <- dane$x
+y <- dane$y
+n <- length(x)
+@
+
+Dane zawierają $n = \Sexpr{n}$ obserwacji zmiennej objaśniającej $X$ 
+oraz zmiennej objaśnianej $Y$.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Model liniowy $Y = \beta_0 + \beta_1 X + \varepsilon$}
+\label{sec:model1}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Estymacja parametrów}
+
+<<model1_estymacja, echo=TRUE>>=
+model1 <- lm(y ~ x)
+summary_m1 <- summary(model1)
+@
+
+<<model1_tabela, results='asis'>>=
+tab_m1 <- data.frame(
+  Parametr = c("$\\beta_0$", "$\\beta_1$"),
+  Estymator = coef(model1),
+  Blad_std = summary_m1$coefficients[,2],
+  t_wartosc = summary_m1$coefficients[,3],
+  p_wartosc = summary_m1$coefficients[,4]
+)
+rownames(tab_m1) <- NULL
+print(xtable(tab_m1, 
+             caption="Estymatory parametrów modelu liniowego $Y = \\beta_0 + \\beta_1 X + \\varepsilon$",
+             label="tab:model1_param",
+             digits=c(0,0,4,4,4,6)),
+      type="latex", table.placement="H", caption.placement="top",
+      sanitize.text.function=function(x){x})
+@
+
+Oszacowany model ma postać:
+$$\hat{Y} = \Sexpr{round(coef(model1)[1], 4)} + \Sexpr{round(coef(model1)[2], 4)} \cdot X.$$
+
+\subsection{Współczynnik determinacji}
+
+Współczynnik determinacji wynosi $R^2 = \Sexpr{round(summary_m1$r.squared, 4)}$, 
+co oznacza, że model liniowy wyjaśnia 
+$\Sexpr{round(summary_m1$r.squared * 100, 2)}\%$ zmienności zmiennej $Y$.
+
+\subsection{Analiza reszt}
+
+\begin{figure}[H]
+<<model1_reszty_fitted, fig=TRUE, fig.cap=''>>=
+df1 <- data.frame(fitted = fitted(model1), residuals = residuals(model1))
+ggplot(df1, aes(x = fitted, y = residuals)) +
+  geom_point(color = "steelblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(x = "Wartości dopasowane", y = "Reszty") +
+  theme_minimal()
+@
+\caption{Wykres reszt w funkcji wartości dopasowanych dla modelu liniowego}
+\label{fig:reszty_model1}
+\end{figure}
+
+Na wykresie reszt (rysunek \ref{fig:reszty_model1}) widać wyraźny wzorzec 
+krzywoliniowy -- reszty nie są losowo rozłożone wokół zera. 
+Dla małych i dużych wartości dopasowanych reszty są ujemne, 
+a dla średnich -- dodatnie. Świadczy to o tym, że zależność 
+między $X$ a $Y$ nie jest liniowa.
+
+\begin{figure}[H]
+<<model1_qq, fig=TRUE, fig.cap=''>>=
+ggplot(df1, aes(sample = residuals)) +
+  stat_qq(color = "steelblue") +
+  stat_qq_line(color = "red") +
+  labs(x = "Kwantyle teoretyczne", y = "Kwantyle empiryczne") +
+  theme_minimal()
+@
+\caption{Wykres kwantyl-kwantyl reszt dla modelu liniowego}
+\label{fig:qq_model1}
+\end{figure}
+
+Wykres kwantyl-kwantyl (rysunek \ref{fig:qq_model1}) wskazuje na 
+odchylenia od rozkładu normalnego reszt.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Wykres rozrzutu}
+\label{sec:wykres_rozrzutu}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{figure}[H]
+<<wykres_rozrzutu, fig=TRUE, fig.cap='', fig.width=5, fig.height=4>>=
+df_dane <- data.frame(x = x, y = y)
+ggplot(df_dane, aes(x = x, y = y)) +
+  geom_point(color = "steelblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red", 
+              linetype = "dashed") +
+  labs(x = "X", y = "Y") +
+  theme_minimal()
+@
+\caption{Wykres rozrzutu zmiennych $X$ i $Y$ z dopasowaną prostą regresji}
+\label{fig:scatter}
+\end{figure}
+
+Na wykresie rozrzutu (rysunek \ref{fig:scatter}) widać, że zależność 
+między $X$ a $Y$ nie ma charakteru liniowego. Dla małych wartości $X$ 
+przyrost $Y$ jest duży, natomiast dla dużych wartości $X$ przyrost $Y$ 
+maleje. Kształt wykresu sugeruje zależność logarytmiczną.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Transformacja zmiennej objaśniającej}
+\label{sec:transformacja}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Na podstawie kształtu wykresu rozrzutu (szybki wzrost $Y$ dla małych $X$, 
+a następnie spowolnienie) proponuję transformację logarytmiczną:
+$$\tilde{X} = \ln(X).$$
+
+Uzasadnienie: zależność $Y$ od $X$ ma charakter wklęsły (konkawny), 
+co jest typowe dla funkcji logarytmicznej. Transformacja $\tilde{X} = \ln(X)$ 
+linearyzuje taką zależność, ponieważ jeśli $Y \approx a + b \cdot \ln(X)$, 
+to regresja $Y$ na $\tilde{X} = \ln(X)$ daje model liniowy.
+
+<<porownanie_transformacji, echo=TRUE>>=
+# Sprawdzenie kilku transformacji
+xt_log <- log(x)
+xt_sqrt <- sqrt(x)
+
+r2_log <- summary(lm(y ~ xt_log))$r.squared
+r2_sqrt <- summary(lm(y ~ xt_sqrt))$r.squared
+r2_lin <- summary_m1$r.squared
+@
+
+<<tab_porownanie_transf, results='asis'>>=
+tab_transf <- data.frame(
+  Transformacja = c("Brak ($X$)", "$\\sqrt{X}$", "$\\ln(X)$"),
+  R2 = c(r2_lin, r2_sqrt, r2_log)
+)
+print(xtable(tab_transf, 
+             caption="Porównanie $R^2$ dla różnych transformacji zmiennej $X$",
+             label="tab:porownanie_transf",
+             digits=c(0,0,6)),
+      type="latex", table.placement="H", caption.placement="top",
+      sanitize.text.function=function(x){x})
+@
+
+Tabela \ref{tab:porownanie_transf} potwierdza, że transformacja 
+logarytmiczna daje najwyższy współczynnik determinacji.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Model liniowy z transformacją $Y = \tilde{\beta}_0 + \tilde{\beta}_1 \ln(X) + \varepsilon$}
+\label{sec:model2}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Estymacja parametrów}
+
+<<model2_estymacja, echo=TRUE>>=
+xt <- log(x)
+model2 <- lm(y ~ xt)
+summary_m2 <- summary(model2)
+@
+
+<<model2_tabela, results='asis'>>=
+tab_m2 <- data.frame(
+  Parametr = c("$\\tilde{\\beta}_0$", "$\\tilde{\\beta}_1$"),
+  Estymator = coef(model2),
+  Blad_std = summary_m2$coefficients[,2],
+  t_wartosc = summary_m2$coefficients[,3],
+  p_wartosc = summary_m2$coefficients[,4]
+)
+rownames(tab_m2) <- NULL
+print(xtable(tab_m2, 
+             caption="Estymatory parametrów modelu $Y = \\tilde{\\beta}_0 + \\tilde{\\beta}_1 \\ln(X) + \\varepsilon$",
+             label="tab:model2_param",
+             digits=c(0,0,4,4,4,6)),
+      type="latex", table.placement="H", caption.placement="top",
+      sanitize.text.function=function(x){x})
+@
+
+Oszacowany model ma postać:
+$$\hat{Y} = \Sexpr{round(coef(model2)[1], 4)} + \Sexpr{round(coef(model2)[2], 4)} \cdot \ln(X).$$
+
+\subsection{Współczynnik determinacji}
+
+Współczynnik determinacji wynosi $R^2 = \Sexpr{round(summary_m2$r.squared, 4)}$, 
+co oznacza, że model z transformacją logarytmiczną wyjaśnia 
+$\Sexpr{round(summary_m2$r.squared * 100, 2)}\%$ zmienności zmiennej $Y$.
+
+\subsection{Analiza reszt}
+
+\begin{figure}[H]
+<<model2_reszty_fitted, fig=TRUE, fig.cap=''>>=
+df2 <- data.frame(fitted = fitted(model2), residuals = residuals(model2))
+ggplot(df2, aes(x = fitted, y = residuals)) +
+  geom_point(color = "darkgreen") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  labs(x = "Wartości dopasowane", y = "Reszty") +
+  theme_minimal()
+@
+\caption{Wykres reszt w funkcji wartości dopasowanych dla modelu z transformacją logarytmiczną}
+\label{fig:reszty_model2}
+\end{figure}
+
+Na wykresie reszt (rysunek \ref{fig:reszty_model2}) reszty są rozłożone 
+losowo wokół zera, bez widocznego wzorca krzywoliniowego. Świadczy to 
+o dobrym dopasowaniu modelu.
+
+\begin{figure}[H]
+<<model2_qq, fig=TRUE, fig.cap=''>>=
+ggplot(df2, aes(sample = residuals)) +
+  stat_qq(color = "darkgreen") +
+  stat_qq_line(color = "red") +
+  labs(x = "Kwantyle teoretyczne", y = "Kwantyle empiryczne") +
+  theme_minimal()
+@
+\caption{Wykres kwantyl-kwantyl reszt dla modelu z transformacją logarytmiczną}
+\label{fig:qq_model2}
+\end{figure}
+
+Wykres kwantyl-kwantyl (rysunek \ref{fig:qq_model2}) wskazuje na lepsze 
+dopasowanie reszt do rozkładu normalnego niż w przypadku modelu liniowego.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Porównanie modeli}
+\label{sec:porownanie}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Współczynnik determinacji $R^2$}
+
+<<porownanie_r2, results='asis'>>=
+tab_r2 <- data.frame(
+  Model = c("$Y = \\beta_0 + \\beta_1 X + \\varepsilon$", 
+            "$Y = \\tilde{\\beta}_0 + \\tilde{\\beta}_1 \\ln(X) + \\varepsilon$"),
+  R2 = c(summary_m1$r.squared, summary_m2$r.squared)
+)
+print(xtable(tab_r2, 
+             caption="Porównanie współczynników determinacji $R^2$ obu modeli",
+             label="tab:porownanie_r2",
+             digits=c(0,0,6)),
+      type="latex", table.placement="H", caption.placement="top",
+      sanitize.text.function=function(x){x})
+@
+
+Model z transformacją logarytmiczną ma znacznie wyższy współczynnik 
+determinacji ($R^2 = \Sexpr{round(summary_m2$r.squared, 4)}$) 
+niż model liniowy ($R^2 = \Sexpr{round(summary_m1$r.squared, 4)}$).
+
+\subsection{Porównanie wykresów reszt}
+
+\begin{figure}[H]
+<<porownanie_reszty, fig=TRUE, fig.cap='', fig.width=6, fig.height=3>>=
+df_por <- data.frame(
+  x = c(x, x),
+  reszty = c(residuals(model1), residuals(model2)),
+  Model = rep(c("Liniowy", "Logarytmiczny"), each = n)
+)
+ggplot(df_por, aes(x = x, y = reszty)) +
+  geom_point(aes(color = Model)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  facet_wrap(~Model) +
+  labs(x = "X", y = "Reszty") +
+  theme_minimal() +
+  theme(legend.position = "none")
+@
+\caption{Porównanie reszt obu modeli w funkcji zmiennej $X$}
+\label{fig:porownanie_reszty}
+\end{figure}
+
+Na rysunku \ref{fig:porownanie_reszty} wyraźnie widać, że reszty modelu liniowego 
+wykazują wzorzec krzywoliniowy (U-kształtny), natomiast reszty modelu 
+z transformacją logarytmiczną są rozłożone losowo wokół zera.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Porównanie wartości obserwowanych i prognozowanych}
+\label{sec:tabela_porownanie}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+<<tabela_porownanie, results='asis'>>=
+tab_pred <- data.frame(
+  Nr = 1:n,
+  Y_obs = y,
+  Y_stary = fitted(model1),
+  Y_nowy = fitted(model2)
+)
+colnames(tab_pred) <- c("Nr obs.", "Obserwowane $Y$", 
+                         "$\\hat{Y}$ stary model",
+                         "$\\hat{Y}$ nowy model")
+print(xtable(tab_pred, 
+             caption="Porównanie obserwowanych i prognozowanych wartości $Y$",
+             label="tab:predykcje",
+             digits=c(0,0,4,4,4)),
+      type="latex", table.placement="H", caption.placement="top",
+      sanitize.text.function=function(x){x})
+@
+
+\begin{figure}[H]
+<<wykres_porownanie_pred, fig=TRUE, fig.cap='', fig.width=5, fig.height=4>>=
+df_pred <- data.frame(
+  x = rep(x, 3),
+  y = c(y, fitted(model1), fitted(model2)),
+  Typ = rep(c("Obserwowane", "Model liniowy", "Model logarytmiczny"), 
+            each = n)
+)
+ggplot(df_pred, aes(x = x, y = y, color = Typ, shape = Typ)) +
+  geom_point(size = 2) +
+  scale_color_manual(values = c("Model liniowy" = "red", 
+                                 "Model logarytmiczny" = "darkgreen",
+                                 "Obserwowane" = "steelblue")) +
+  scale_shape_manual(values = c("Model liniowy" = 2, 
+                                "Model logarytmiczny" = 4,
+                                "Obserwowane" = 16)) +
+  labs(x = "X", y = "Y", color = "", shape = "") +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+@
+\caption{Porównanie obserwowanych wartości $Y$ z prognozami obu modeli}
+\label{fig:porownanie_pred}
+\end{figure}
+
+Na rysunku \ref{fig:porownanie_pred} widać, że prognozy modelu 
+z transformacją logarytmiczną (zielone krzyżyki) znacznie lepiej 
+pokrywają się z obserwowanymi wartościami (niebieskie punkty) 
+niż prognozy modelu liniowego (czerwone trójkąty).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Podsumowanie}
+\label{sec:podsumowanie}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Transformacja zmiennej objaśniającej $\tilde{X} = \ln(X)$ była opłacalna. 
+Przemawiają za tym następujące argumenty:
+
+\begin{enumerate}
+\item Współczynnik determinacji wzrósł z $R^2 = \Sexpr{round(summary_m1$r.squared, 4)}$ 
+do $R^2 = \Sexpr{round(summary_m2$r.squared, 4)}$, co oznacza, 
+że nowy model wyjaśnia znacznie większą część zmienności $Y$.
+\item Reszty modelu z transformacją logarytmiczną nie wykazują 
+wzorca krzywoliniowego, w przeciwieństwie do reszt modelu liniowego. 
+Oznacza to, że założenie o liniowej zależności między $\tilde{X}$ 
+a $Y$ jest spełnione.
+\item Prognozy nowego modelu są znacznie bliższe obserwowanym 
+wartościom $Y$, co potwierdza lepsze dopasowanie.
+\item Wykres kwantyl-kwantyl reszt nowego modelu wskazuje na lepsze 
+dopasowanie do rozkładu normalnego.
+\end{enumerate}
+
+Zależność między zmiennymi $X$ i $Y$ ma charakter logarytmiczny, 
+a nie liniowy. Model $Y = \tilde{\beta}_0 + \tilde{\beta}_1 \ln(X) + \varepsilon$ 
+jest zdecydowanie lepszy niż model $Y = \beta_0 + \beta_1 X + \varepsilon$.
+
+\end{document}

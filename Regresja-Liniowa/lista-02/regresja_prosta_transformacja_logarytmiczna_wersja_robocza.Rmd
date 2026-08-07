@@ -1,0 +1,92 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-03-19"
+---
+
+```{r}
+
+```
+
+```{r}
+library(readxl)
+dane<-read_excel("lab3.xlsx")
+x <- dane$x
+y <- dane$y
+
+```
+
+```{r}
+
+x_srednia <- mean(x)
+y_srednia <- mean(y)
+
+beta1_hat <- sum((x-x_srednia)*(y-y_srednia))/sum((x-x_srednia)^2)
+beta0_hat <- y_srednia - beta1_hat*x_srednia
+
+y_hat <- beta1_hat*x + beta0_hat
+
+SSE = sum((y-y_hat)^2)
+SST = sum((y-y_srednia)^2)
+
+R_kwadrat = 1 - SSE/SST
+
+model <- lm(y ~ x, data = dane)
+summary(model)
+plot(model)
+
+```
+```{r}
+hist(resid(model))
+```
+
+```{r}
+cat("R^2 =",R_kwadrat)
+```
+
+Q-Q Residual wygląda OK czyli ma rozkłład normalny
+```{r}
+plot(dane$x, dane$y, main = "Wykres Rozrzutu", xlab="x", ylab="y", pch=20, abline(model, lwd=2))
+```
+Rozrzut reszt przypomina wykres funkcji logarytmicznej, a nie liniowej.
+```{r}
+x_log <- log(x)
+```
+
+```{r}
+x_srednia2 <- mean(x_log)
+
+beta1_hat <- sum((x_log-x_srednia2)*(y-y_srednia))/sum((x_log-x_srednia2)^2)
+beta0_hat <- y_srednia - beta1_hat*x_srednia2
+
+y_hat <- beta1_hat*x_log + beta0_hat
+
+SSE = sum((y-y_hat)^2)
+SST = sum((y-y_srednia)^2)
+
+R_kwadrat = 1 - SSE/SST
+
+model2 <- lm(y ~ log(x), data = dane)
+summary(model2)
+plot(model2)
+
+```
+
+```{r}
+hist(resid(model2))
+```
+
+```{r}
+cat("R^2 =",R_kwadrat)
+```
+
+```{r}
+plot(x_log, dane$y, main = "Wykres Rozrzutu", xlab="x", ylab="y", pch=20, abline(model2, lwd=2))
+```
+
+```{r}
+plot(dane$x, dane$y)
+lines(dane$x, model$fitted.values)
+lines(dane$x, model2$fitted.values, col="red")
+```
+```
