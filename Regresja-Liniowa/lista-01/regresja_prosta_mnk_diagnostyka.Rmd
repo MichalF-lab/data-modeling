@@ -1,0 +1,239 @@
+---
+title: "Untitled"
+output:
+  pdf_document: default
+  html_document: default
+date: "2026-03-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(readxl)
+dane<-read_excel("lab12.xlsx")
+x <- dane$x
+y <- dane$y
+library(car)
+
+```
+
+
+```{r}
+x_srednia <- mean(x)
+y_srednia <- mean(y)
+
+x_var <- var(x)
+y_var <- var(y)
+
+x_odchylenie <- sqrt(x_var)
+y_odchylenie <- sqrt(y_var)
+
+x_mediana <- median(x)
+y_mediana <- median(y)
+
+x_q <- quantile(x)
+y_q <- quantile(y)
+list(x_srednia = mean(x), y_srednia = mean(y), x_var = var(x), y_var = var(y), x_odchylenie = sd(x), y_odchylenie = sd(y), x_mediana = median(x), y_mediana = median(y), x_kwantyle = quantile(x), y_kwantyle = quantile(y))
+```
+
+```{r}
+plot(x, y, main = "Wykres Rozrzutu", xlab="x", ylab="y", pch=20)
+```
+```{r}
+beta1_hat <- sum((x-x_srednia)*(y-y_srednia))/sum((x-x_srednia)^2)
+beta0_hat <- y_srednia - beta1_hat*x_srednia
+
+y_hat <- beta1_hat*x + beta0_hat
+
+r <- cor(x,y)
+print(r)
+```
+
+R jest w miare bliskie 1 więc możemy wykorzystać moedel regresji liniowej
+
+```{r}
+print(paste("y =", beta1_hat, "* x +", beta0_hat))
+```
+
+```{r}
+stopnie_swobody <- length(y) -2
+siqma = sum((y-y_hat)^2) / stopnie_swobody
+print(siqma)
+```
+
+```{r}
+SE <- siqma / sum((x - x_srednia)^2)
+T_ <- beta1_hat / SE
+
+p <- 2*(1- pt(abs(T_),stopnie_swobody))
+print(p)
+```
+
+p w przyblizeniu zero więc mamy podstawe do odrzucenia H0
+
+
+```{r}
+alpha <- 0.1
+SE <- sqrt(SE)
+przedzial <- beta1_hat + qt(1 - alpha/2, stopnie_swobody) * SE
+print(paste(-przedzial," ", przedzial))
+```
+
+```{r}
+result <- beta1_hat *1 + beta0_hat
+print(result)
+```
+
+```{r}
+SEy <- siqma*(1 + 1/length(y) + (1-x_srednia)^2 / sum((x-x_srednia)^2))
+SEy <- sqrt(SEy)
+przedzial_modelu_up <- result + qt(1 - alpha/2, stopnie_swobody) * SEy
+przedzial_modelu_down <- result - qt(1 - alpha/2, stopnie_swobody) * SEy
+print(przedzial_modelu_up)
+print(przedzial_modelu_down)
+```
+
+```{r}
+residua <- y - y_hat
+hist(residua)
+```
+Przez ogon po prawej stronie nie mamy pewności czy to rozklad normalny
+```{r}
+qqnorm(residua, main = "Wykres Q-Q")
+qqline(residua)
+```
+Widać duże odchylenia przy ogonach
+```{r}
+plot(y_hat, residua, main = "Wykres Rozrzutu", xlab="x", ylab="y", pch=20)
+```
+
+```{r}
+plot(x, residua, main = "Wykres Rozrzutu", xlab="x", ylab="y", pch=20)
+```
+
+
+```{r}
+cor(residua, x)
+```
+
+```{r}
+cor(residua, y_hat)
+```
+
+Możliwe że nie jest spełniony warunek dotyczący rozkładu normalnego błedów 
+
+```{r}
+dane2 <- dane
+dane2$y[200] <- dane2$y[200]*10
+plot(dane2$x, dane2$y, main = "Wykres Rozrzutu", xlab="x", ylab="y", pch=20)
+```
+
+```{r}
+x <- dane2$x
+y <-dane2$y
+beta1_hat <- sum((x-x_srednia)*(y-y_srednia))/sum((x-x_srednia)^2)
+beta0_hat <- y_srednia - beta1_hat*x_srednia
+
+y_hat <- beta1_hat*x + beta0_hat
+print(paste("y =", beta1_hat, "* x +", beta0_hat))
+```
+
+Jest obserwacja wpływaową i odstającą
+
+```{r}
+n <- 200
+beta0 <- 1
+beta1 <- 2
+sigma <- 0.1
+x <- runif(n, min = -2, max = 2)
+
+epsilon <- rnorm(n, mean = 0, sd = sigma)
+y <- beta0 + beta1 * x + epsilon
+
+plot(x, y)
+```
+Chmura punktów ma charakter liniowy
+```{r}
+set.seed(1111)
+```
+
+```{r}
+x_srednia2 <- mean(x)
+y_srednia2 <- mean(y)
+
+beta1_hat <- sum((x - x_srednia2) * (y - y_srednia2)) / sum((x - x_srednia2)^2)
+beta0_hat <- y_srednia2 - beta1_hat * x_srednia2
+print(paste("y =", beta1_hat, "* x +", beta0_hat))
+
+y_hat <- beta1_hat*x + beta0_hat
+SSE = sum((y-y_hat)^2)
+SST = sum((y-y_srednia2)^2)
+
+R = 1 - SSE/SST
+print(R)
+```
+Wychodzi git
+
+```{r}
+n <- 200
+beta0 <- 1
+beta1 <- 2
+sigma <- 0.5
+x <- runif(n, min = -2, max = 2)
+
+epsilon <- rnorm(n, mean = 0, sd = sigma)
+y <- beta0 + beta1 * x + epsilon
+
+plot(x, y)
+```
+
+```{r}
+x_srednia2 <- mean(x)
+y_srednia2 <- mean(y)
+
+beta1_hat <- sum((x - x_srednia2) * (y - y_srednia2)) / sum((x - x_srednia2)^2)
+beta0_hat <- y_srednia2 - beta1_hat * x_srednia2
+print(paste("y =", beta1_hat, "* x +", beta0_hat))
+
+y_hat <- beta1_hat*x + beta0_hat
+SSE = sum((y-y_hat)^2)
+SST = sum((y-y_srednia2)^2)
+
+R = 1 - SSE/SST
+print(R)
+```
+
+```{r}
+n <- 200
+beta0 <- 1
+beta1 <- 2
+sigma <- 1
+x <- runif(n, min = -2, max = 2)
+
+epsilon <- rnorm(n, mean = 0, sd = sigma)
+y <- beta0 + beta1 * x + epsilon
+
+plot(x, y)
+```
+
+```{r}
+x_srednia2 <- mean(x)
+y_srednia2 <- mean(y)
+
+beta1_hat <- sum((x - x_srednia2) * (y - y_srednia2)) / sum((x - x_srednia2)^2)
+beta0_hat <- y_srednia2 - beta1_hat * x_srednia2
+print(paste("y =", beta1_hat, "* x +", beta0_hat))
+
+y_hat <- beta1_hat*x + beta0_hat
+SSE = sum((y-y_hat)^2)
+SST = sum((y-y_srednia2)^2)
+
+R = 1 - SSE/SST
+print(R)
+```
+Dla coraz większych varjancji R^2 maleje co jest zgodne z intuicja oraz B1 i B0 również coraz bardziej się oddalają od prawdziwych wartości
+
+confint(model, level = 0.95)
