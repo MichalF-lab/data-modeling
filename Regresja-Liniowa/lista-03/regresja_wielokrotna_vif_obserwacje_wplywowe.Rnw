@@ -1,0 +1,177 @@
+\documentclass[12pt, a4paper]{article}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% dodatkowe pakiety LaTeX'a
+\usepackage[OT4]{polski}
+\usepackage[utf8]{inputenc}
+\usepackage[top=2.5cm, bottom=2.5cm, left=2cm, right=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{bbm}
+\usepackage{amssymb}
+\usepackage[colorlinks=true, linkcolor=blue]{hyperref}
+\usepackage{parskip}
+\usepackage{caption}
+\captionsetup[table]{skip=8pt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ustawienia globalne
+
+<<ustawienia_globalne, echo=FALSE, warning=FALSE, message=FALSE>>=
+library(knitr)
+library(latex2exp)
+library(xtable)
+library(ggplot2)
+opts_chunk$set(
+  fig.path='figure/', 
+  fig.align='center', 
+  fig.pos='H', 
+  out.width='100%',     # To rozciągnie grafikę do szerokości tekstu w LaTeX
+  fig.width=7,          # To zwiększa "rozdzielczość" bazową wykresu (opcjonalne)
+  fig.asp=0.7           # Ustala proporcję wysokości do szerokości (np. 0.7)
+)
+library(readxl)
+library(corrplot)
+library(car)
+dane<-read_excel("regwiel.xlsx")
+@
+
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\title{Sprawozdanie 2}
+\author{Michał Frąckowiak\\ 275951}
+\maketitle
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+
+
+
+<<nazwa1, echo=FALSE>>=
+dane<-read_excel("regwiel.xlsx")
+pairs(dane)
+@
+
+Widać obserwacje odstające
+Zmienne X6 i może X9 mogą mieć liniowy wpływ na Y
+
+<<nazwa2, echo=FALSE>>=
+plot(dane$X6, dane$X9)
+@
+
+
+<<nazwa3, echo=FALSE>>=
+plot(dane$X2, dane$X8)
+@
+
+<<nazwa4, echo=FALSE>>=
+plot(dane$X2, dane$X10)
+@
+Widać że zmienne X2 X8 i X10 są współliniowe podobnie jak X6 i X9
+
+<<nazwa5, echo=FALSE>>=
+macierz.korelacji <- round(cor(dane), 3)
+print(macierz.korelacji)
+@
+Wnioski okazały sie słuszne
+
+<<nazwa6, echo=FALSE>>=
+model <- lm(Y ~., data = dane)
+@
+
+<<nazwa7, echo=FALSE>>=
+model$coefficients
+@
+estymowane parmetry modelu:
+
+<<nazwa72, echo=FALSE>>=
+summary(model)
+@
+
+H0:  B1=B2=...=Bk=0
+\newline
+H1: Istnieje przynajmniej jedno i, dla którego Bi=0
+\newline
+F-statistic: p-value: < 2.2e-16
+Mamy podstawe by odrzucić H0
+
+<<nazwa8, echo=FALSE>>=
+corrplot(macierz.korelacji, method = "color",  addCoef.col='black',number.cex=0.6)
+@
+
+<<nazwa9>>=
+info<-summary(model)
+
+print(info$adj.r.squared)
+print(info$r.squared)
+print(info$df)
+@
+Model jest dobrze dopasowany do danych
+<<nazwa10>>=
+
+vif.val<-vif(model)
+
+while(any(vif.val>10)){
+  zmienna.do.usunięcia<-names(which.max(vif.val))
+  formuła<-formula(model)
+  formuła.nowa<-update(formuła,paste(". ~ . -",zmienna.do.usunięcia))
+  model<-lm(formuła.nowa,dane)
+  vif.val<-vif(model)
+  print(vif.val)
+}
+@
+
+<<nazwa11>>=
+n<-nrow(dane)
+p<-length(coef(model))
+lev<-hatvalues(model)
+cook<-cooks.distance(model)
+rstud<-rstudent(model)
+
+próg.lev<-2*p/n
+próg.cook<-4/(n-p)
+próg.rstud<-2
+
+indeks.lev<-which(lev>próg.lev)
+indeks.cook<-which(cook>próg.cook)
+indeks.rstud<-which(abs(rstud)>próg.rstud)
+indeks.lev
+indeks.cook
+indeks.rstud
+
+<<nazwa12, echo=FALSE>>=
+plot(cook,pch=19,col='blue',ylim=c(0,0.06),xlim=c(0,210))
+abline(próg.cook,0)
+text(x=indeks.cook,y=cook[indeks.cook]*1.1,labels=indeks.cook)
+@
+
+<<nazwa13, echo=FALSE>>=
+plot(lev,pch=19,col='blue',ylim=c(0,0.15),xlim=c(0,210))
+abline(próg.lev,0)
+text(x=indeks.lev,y=lev[indeks.lev]*1.1,labels=indeks.lev)
+@
+
+<<nazwa14, echo=FALSE>>=
+plot(rstud,pch=19,col='blue',ylim=c(-3,3),xlim=c(0,210))
+abline(próg.rstud,0)
+abline(-próg.rstud,0)
+text(x=indeks.rstud,y=rstud[indeks.rstud]*1.1,labels=indeks.rstud)
+@
+
+<<nazwa15>>=
+indeksy.do.usunięcia<-sort(unique(c(indeks.cook,indeks.rstud,indeks.lev)))
+danee<-dane[-indeksy.do.usunięcia,]
+@
+
+<<nazwa16, echo=FALSE>>=
+model <- lm(Y ~., data = danee)
+summary(model)
+@
+
+6
+estymator najmniejszych kwadratów Estimate Std
+F-statistic:  p-value: < 2.2e-16
+Multiple R-squared: 0.9995, Adjusted R-squared: 0.9995
+Model lepiej dopasowuje się do danych
+\end{document}
