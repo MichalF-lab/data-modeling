@@ -1,0 +1,117 @@
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[polish]{babel}
+\usepackage{amsmath}
+\usepackage[margin=2cm]{geometry}
+\begin{document}
+
+<<setup, include=FALSE>>=
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=6, fig.height=4)
+@
+
+\section*{Generowanie danych}
+
+
+Uwaga prez pomyłke nie dałem set seed!
+<<losowanie>>=
+n<-300
+p<-20
+X<-matrix(rnorm(n*p,2,5),ncol=p,nrow=n)
+X[,1]<-rep(1,n)
+beta<-c(rnorm(10,0,1/4),numeric(10))
+pi.p<-1/(1+exp(-X%*%beta))
+colnames(X)<-sapply(1:p,function(i){paste0("X",i)})
+dane<-data.frame(X)
+dane$Y<-rbinom(n,1,pi.p)
+write.csv(dane,"daneG5.csv",row.names=F)
+@
+
+<<podzial>>=
+id.0<-which(dane$Y==0)
+id.1<-which(dane$Y==1)
+
+train.0<-sample(id.0,size=floor(0.7*length(id.0)))
+train.1<-sample(id.1,size=floor(0.7*length(id.1)))
+
+id.train<-sort(c(train.0,train.1))
+id.test<-setdiff(seq_len(n),id.train)
+
+train<-dane[id.train,]
+test<-dane[id.test,]
+@
+
+\section*{Konstrukcja modelu}
+
+<<model>>=
+model.full<-glm(Y~.,data=train[,-1],family=binomial)
+model.null<-glm(Y~1,data=train[,-1],family=binomial)
+
+anova(model.null,model.full,test='LRT')
+@
+
+H0 - wszytskie bety są równe zero, H1 - H0 jest fałszywa
+p-value jest mniejsze od progu istotności zatem mamy podstawę do odzrzucenia hipotezy H0
+
+<<model2>>=
+summary(model.full)
+@
+wartości estmatorów są w kolumnie Estimate a błady standardowe w Std. Error wartości
+Testy p-value są w kolumnie Pr(>|z|) dal bet od X11 do X20 p-value wychodzi duze co jest zgodne z oczekiwaniami dla zmiennych objasnijących od X1 do X10 wychodzi to róznie
+<<model3>>=
+confint(model.full)
+
+cbind(beta,coef(model.full))
+@
+Model dośc dobrze estymuje parametry B znaki się zgadzaja
+
+<<model4>>=
+coef(model.full)[2]
+
+exp(coef(model.full))[2]
+@
+
+Wzrost X2 o 1 jednostkę zwiększa szansę zdarzenia przez 23 procent
+
+<<model5>>=
+coef(model.full)[5]
+
+exp(coef(model.full))[5]
+@
+
+Wzrost X5 o 1 jednostkę zmniejsza szansę zdarzenia o 32 procent
+
+<<cosos>>=
+pred.test<-predict(model.full,
+                   newdata=test,type='response')
+
+wskaźniki<-function(poziom=0.5){
+  pred.class<-ifelse(pred.test>poziom,1,0)
+  cm<-table(pred=pred.class,real=test$Y)
+  sen<-cm[2,2]/sum(cm[,2])
+  spec<-cm[1,1]/sum(cm[,1])
+  fpr<-cm[2,1]/sum(cm[,1])
+  fnr<-cm[1,2]/sum(cm[,2])
+  acc<-sum(diag(cm))/sum(cm)
+  miary<-c(sen,spec,fpr,fnr,acc)
+  names(miary)<-c("sen","spec","fpr","fnr","acc")
+  return(list(cm=cm,miary=miary))
+}
+
+M.1<-wskaźniki(0.5)
+M.2<-wskaźniki(0.7)
+
+cbind(M.1$miary,M.2$miary)
+@
+
+Według kryterium Youden M.1 = 0.779, M.2 = 0.837 zatem według tego kryterium M.2 lepszy
+
+<<dalej>>=
+library(pROC)
+roc.obj<-roc(test$Y,pred.test)
+auc(roc.obj)
+plot(roc.obj,col='red')
+@
+AUC jest na poziomie 0.97 co sprawia ze model dość dobrze odróznia klasy
+\end{document}
