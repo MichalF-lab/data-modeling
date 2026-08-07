@@ -1,0 +1,35 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-04-23"
+---
+
+```{r setup, include=FALSE}
+library(ppcor)
+library(readxl)
+library(car)
+dane<-read_excel("C:/Users/micha/Downloads/lab7.xlsx")
+temp1 <- cor(dane)
+temp2 <-pcor(dane)
+
+ext1 <- temp1
+ext2 <- temp2$estimate
+
+
+
+
+porownanie <- data.frame(
+  r_zwykle       = ext1[1, 2:4],
+  r_czastkowe    = ext2[1, 2:4]
+)
+porownanie$Para
+porownanie$r_zwykle
+porownanie$r_czastkowe
+
+```
+
+```{r}
+model <- lm(dane$y~dane$X1+dane$X2+dane$X3)
+avPlots(model)
+
+```
