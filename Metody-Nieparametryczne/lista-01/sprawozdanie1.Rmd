@@ -1,0 +1,239 @@
+---
+title: "Untitled"
+output:
+  pdf_document: default
+  html_document: default
+date: "2026-11-03"
+---
+
+```{r setup, include=FALSE}
+set.seed(275951)
+M <- 1000
+n <- 20
+m <- 20
+alpha <- 0.05
+delta <- c(0, 0.2, 0.4, 0.6, 0.8, 1)
+```
+
+
+```{r}
+zapisw <- c()
+zapist <- c()
+for (i in delta){
+  countw <- 0
+  countt <- 0
+  for (j in 1:M){
+    x <- rnorm(n)
+    y <- rnorm(m, i)
+    
+    w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+    t <- t.test(x,y,alternative="less",var.equal = TRUE)
+    
+    if (w$p.value < alpha){countw <- countw + 1}
+    if (t$p.value < alpha){countt <- countt + 1}
+  }
+  zapist <- c(zapist, countt / M)
+  zapisw <- c(zapisw, countw / M)
+}
+```
+
+```{r}
+cat("delta Moc testu Wilcoxona Moc testu t-Studenta Lepszy test\n")
+for (i in 1:6){
+  lepszy <- ""
+  if(zapist[i] < zapisw[i]){
+    lepszy <- "W"
+  }
+  else{lepszy <- "T"}
+  cat(zapist[i]," ",zapisw[i]," ",lepszy ,"\n")
+}
+```
+
+
+```{r}
+plot(delta, zapisw, type = "l")
+lines(delta, zapist, col="red")
+```
+
+
+```{r}
+P95 <-function(){rbinom(m,1,0.95)}
+P90 <-function(){rbinom(m,1,0.90)}
+N05 <-function(){rnorm(m,0.5,1)}
+N8 <-function(){rnorm(m,8,1)}
+N12 <-function(){rnorm(m,12,1)}
+N20 <-function(){rnorm(m,20,1)}
+```
+
+
+
+```{r}
+zapisw2 <- c()
+zapist2 <- c()
+
+countw <- 0
+countt <- 0
+for (j in 1:M){
+  x <- rnorm(n)
+  y <- rnorm(m, 0.5)
+  
+  w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+  t <- t.test(x,y,alternative="less",var.equal = TRUE)
+  
+  if (w$p.value < alpha){countw <- countw + 1}
+  if (t$p.value < alpha){countt <- countt + 1}
+}
+zapist2 <- c(zapist2, countt / M)
+zapisw2 <- c(zapisw2, countw / M)
+```
+
+
+```{r}
+countw <- 0
+countt <- 0
+for (j in 1:M){
+  x <- rnorm(n)
+  temp <- P95()
+  y <- temp*N05() + (1-temp)*N8()
+  
+  w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+  t <- t.test(x,y,alternative="less",var.equal = TRUE)
+  
+  if (w$p.value < alpha){countw <- countw + 1}
+  if (t$p.value < alpha){countt <- countt + 1}
+}
+zapist2 <- c(zapist2, countt / M)
+zapisw2 <- c(zapisw2, countw / M)
+```
+
+
+```{r}
+countw <- 0
+countt <- 0
+for (j in 1:M){
+  x <- rnorm(n)
+  temp <- P90()
+  y <- temp*N05() + (1-temp)*N8()
+  
+  w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+  t <- t.test(x,y,alternative="less",var.equal = TRUE)
+  
+  if (w$p.value < alpha){countw <- countw + 1}
+  if (t$p.value < alpha){countt <- countt + 1}
+}
+zapist2 <- c(zapist2, countt / M)
+zapisw2 <- c(zapisw2, countw / M)
+```
+
+
+
+```{r}
+countw <- 0
+countt <- 0
+for (j in 1:M){
+  x <- rnorm(n)
+  temp <- P95()
+  y <- temp*N05() + (1-temp)*N12()
+  
+  w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+  t <- t.test(x,y,alternative="less",var.equal = TRUE)
+  
+  if (w$p.value < alpha){countw <- countw + 1}
+  if (t$p.value < alpha){countt <- countt + 1}
+}
+zapist2 <- c(zapist2, countt / M)
+zapisw2 <- c(zapisw2, countw / M)
+```
+
+
+```{r}
+countw <- 0
+countt <- 0
+for (j in 1:M){
+  x <- rnorm(n)
+  temp <- P90()
+  y <- temp*N05() + (1-temp)*N12()
+  
+  w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+  t <- t.test(x,y,alternative="less",var.equal = TRUE)
+  
+  if (w$p.value < alpha){countw <- countw + 1}
+  if (t$p.value < alpha){countt <- countt + 1}
+}
+zapist2 <- c(zapist2, countt / M)
+zapisw2 <- c(zapisw2, countw / M)
+```
+
+
+```{r}
+countw <- 0
+countt <- 0
+for (j in 1:M){
+  x <- rnorm(n)
+  temp <- P95()
+  y <- temp*N05() + (1-temp)*N20()
+  
+  w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+  t <- t.test(x,y,alternative="less",var.equal = TRUE)
+  
+  if (w$p.value < alpha){countw <- countw + 1}
+  if (t$p.value < alpha){countt <- countt + 1}
+}
+zapist2 <- c(zapist2, countt / M)
+zapisw2 <- c(zapisw2, countw / M)
+```
+
+```{r}
+cat("delta Moc testu Wilcoxona Moc testu t-Studenta Lepszy test\n")
+for (i in 1:6){
+  lepszy <- ""
+  if(zapist2[i] < zapisw2[i]){
+    lepszy <- "W"
+  }
+  else{lepszy <- "T"}
+  cat(zapist2[i]," ",zapisw2[i]," ",lepszy, "\n")
+}
+```
+Nie jest spełnione załozenie o normalności wiec dla duzych sie rozjedza. Dla małych sa male srednie wiec nie wykrywa
+
+```{r}
+zapisw <- c()
+zapist <- c()
+for (i in delta){
+  countw <- 0
+  countt <- 0
+  for (j in 1:M){
+    x <- rt(n, df=3)
+    y <- rt(m, df=3) + i
+    
+    w <- wilcox.test(x,y,alternative="less",exact=FALSE,correct=FALSE)
+    t <- t.test(x,y,alternative="less",var.equal = TRUE)
+    
+    if (w$p.value < alpha){countw <- countw + 1}
+    if (t$p.value < alpha){countt <- countt + 1}
+  }
+  zapist <- c(zapist, countt / M)
+  zapisw <- c(zapisw, countw / M)
+}
+```
+
+```{r}
+cat("delta Moc testu Wilcoxona Moc testu t-Studenta Lepszy test\n")
+for (i in 1:6){
+    lepszy <- ""
+  if(zapist[i] < zapisw2[i]){
+    lepszy <- "W"
+  }
+  else{lepszy <- "T"}
+  cat(zapist[i]," ",zapisw[i]," ",lepszy, "\n")
+}
+```
+
+```{r}
+plot(delta, zapisw, type = "l")
+lines(delta, zapist, col="red")
+
+```
+
+
+Test Wilcoxona dziala na rangach więc zamineia obserwacje odstające na porostu rangi. Test wtedy nie widzi tych odleglosci.
