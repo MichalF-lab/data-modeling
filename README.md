@@ -6,7 +6,7 @@
 
 ## 📖 Opis
 
-Repozytorium łączy cztery projekty z zakresu modelowania danych i statystyki — trzy z nich zachowują pełną historię commitów ze swoich pierwotnych repozytoriów w osobnym podfolderze. Każdy podfolder ma własne, szczegółowe README.
+Repozytorium łączy pięć projektów z zakresu modelowania danych i statystyki — cztery z nich zachowują pełną historię commitów ze swoich pierwotnych repozytoriów w osobnym podfolderze. Każdy podfolder ma własne, szczegółowe README.
 
 ## 📂 Struktura
 
@@ -16,6 +16,7 @@ Repozytorium łączy cztery projekty z zakresu modelowania danych i statystyki �
 | [`Analiza-Przezycia/`](./Analiza-Przezycia) | Modele przeżycia: Kaplan-Meier, Cox PH, Weibull AFT, proportional odds |
 | [`Statystyka/`](./Statystyka) | Statystyka zaawansowana: dopasowanie rozkładów, testy zgodności, przedziały ufności, regresja |
 | [`Regresja-Liniowa/`](./Regresja-Liniowa) | Regresja prosta i wielokrotna (MNK, VIF, selekcja krokowa), estymacja nieliniowa Gaussa-Newtona, regresja logistyczna/probitowa, regresja kwantylowa |
+| [`Metody-Nieparametryczne/`](./Metody-Nieparametryczne) | Testy nieparametryczne, m.in. porównanie mocy testów Wilcoxona i t-Studenta (Monte Carlo) |
 
 ## 🛠️ Technologie
 
